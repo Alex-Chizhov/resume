@@ -388,9 +388,59 @@ img {
     border: 1px solid var(--border-color);
 }
 
+.education__header {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 10px;
+}
+
+.education__icon {
+    width: 50px;
+    height: 50px;
+    background-color: rgba(16, 185, 129, 0.1);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    color: var(--primary-color);
+    flex-shrink: 0;
+}
+
 .education__school {
     font-weight: 600;
     font-size: 1.1rem;
+}
+
+.education__location {
+    font-weight: 400;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    margin-left: 5px;
+}
+
+.education__date {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    margin-bottom: 5px;
+    margin-left: 65px;
+    /* Align with text, offset by icon width + gap */
+}
+
+.education__degree {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-color);
+    margin-bottom: 10px;
+    margin-left: 65px;
+}
+
+.education__diploma {
+    font-size: 1rem;
+    color: var(--text-secondary);
+    margin-left: 65px;
+    line-height: 1.5;
 }
 
 .education__course {
