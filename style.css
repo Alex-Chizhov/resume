@@ -571,3 +571,7 @@ img {
     opacity: 1;
     transform: translateY(0);
 }
+
+.education__title {
+    margin-bottom: 20px;
+}
