@@ -1,0 +1,10 @@
+{
+  "id": 2,
+  "slug": "qa-design-patterns-python",
+  "title": "Паттерны проектирования в автоматизации тестирования на Python",
+  "image": "assets/images/qa-design-patterns-cover.png",
+  "category": "Архитектура",
+  "date": "28 июля 2026",
+  "readTime": "15 мин",
+  "excerpt": "Полный разбор ключевых паттернов в QA на Python: Singleton, Builder, Facade, Factory, Page Object, Page Factory, Page Element, Page Builder и Screenplay."
+}

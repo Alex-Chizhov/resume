@@ -1,0 +1,10 @@
+{
+  "id": 5,
+  "slug": "docker-for-qa-engineers",
+  "title": "Docker для QA инженера: Запуск тестового окружения в один клик",
+  "image": "https://images.unsplash.com/photo-1605745341112-85968b19335b?auto=format&fit=crop&w=800&q=80",
+  "category": "DevOps",
+  "date": "16 июля 2026",
+  "readTime": "9 мин",
+  "excerpt": "Полное руководство по Docker Compose для поднятия изолированных баз данных, мок-серверов и сеток браузеров локально и на CI."
+}

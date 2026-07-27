@@ -1,0 +1,167 @@
+[
+  {
+    "id": 1,
+    "slug": "playwright-vs-selenium",
+    "title": "Чем Playwright лучше Selenium",
+    "image": "assets/images/playwright-cover.png",
+    "category": "Автоматизация",
+    "date": "27 июля 2026",
+    "readTime": "12 мин",
+    "excerpt": "Сравнение двух гигантов автоматизации тестирования. Разбираем архитектуру, авто-ожидания, скорость и возможности управления несколькими контекстами браузера.",
+    "path": "articles/playwright-vs-selenium"
+  },
+  {
+    "id": 2,
+    "slug": "qa-design-patterns-python",
+    "title": "Паттерны проектирования в автоматизации тестирования на Python",
+    "image": "assets/images/qa-design-patterns-cover.png",
+    "category": "Архитектура",
+    "date": "28 июля 2026",
+    "readTime": "15 мин",
+    "excerpt": "Полный разбор ключевых паттернов в QA на Python: Singleton, Builder, Facade, Factory, Page Object, Page Factory, Page Element, Page Builder и Screenplay.",
+    "path": "articles/qa-design-patterns-python"
+  },
+  {
+    "id": 3,
+    "slug": "pytest-fixtures-best-practices",
+    "title": "Фикстуры в PyTest: От новичка до профессионала",
+    "image": "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=800&q=80",
+    "category": "Python",
+    "date": "22 июля 2026",
+    "readTime": "7 мин",
+    "excerpt": "Научитесь эффективно использовать скоупы фикстур, параметризацию и yield-генераторы для очистки тестовых данных в Python.",
+    "path": "articles/pytest-fixtures-best-practices"
+  },
+  {
+    "id": 4,
+    "slug": "postman-to-bruno-migration",
+    "title": "Почему мы перешли с Postman на Bruno для тестирования API",
+    "image": "https://images.unsplash.com/photo-1618401471353-b98afee0b2eb?auto=format&fit=crop&w=800&q=80",
+    "category": "API Testing",
+    "date": "19 июля 2026",
+    "readTime": "5 мин",
+    "excerpt": "Платные ограничения Postman и хранение данных в облаке заставили нас искать альтернативу. Разбираем оффлайн-клиент Bruno на Bru-файлах.",
+    "path": "articles/postman-to-bruno-migration"
+  },
+  {
+    "id": 5,
+    "slug": "docker-for-qa-engineers",
+    "title": "Docker для QA инженера: Запуск тестового окружения в один клик",
+    "image": "https://images.unsplash.com/photo-1605745341112-85968b19335b?auto=format&fit=crop&w=800&q=80",
+    "category": "DevOps",
+    "date": "16 июля 2026",
+    "readTime": "9 мин",
+    "excerpt": "Полное руководство по Docker Compose для поднятия изолированных баз данных, мок-серверов и сеток браузеров локально и на CI.",
+    "path": "articles/docker-for-qa-engineers"
+  },
+  {
+    "id": 6,
+    "slug": "k6-performance-testing-guide",
+    "title": "Нагрузочное тестирование с K6: От простых скриптов к distributed-нагрузке",
+    "image": "https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=800&q=80",
+    "category": "Performance",
+    "date": "14 июля 2026",
+    "readTime": "8 мин",
+    "excerpt": "Как писать сценарии нагрузки на JavaScript в K6, измерять p95 latency и интегрировать пороги (thresholds) в GitHub Actions.",
+    "path": "articles/k6-performance-testing-guide"
+  },
+  {
+    "id": 7,
+    "slug": "ai-in-software-testing-2026",
+    "title": "ИИ в тестировании ПО: Реальная польза против маркетингового хайпа",
+    "image": "https://images.unsplash.com/photo-1677442136019-21780efad99a?auto=format&fit=crop&w=800&q=80",
+    "category": "ИИ & Тренды",
+    "date": "11 июля 2026",
+    "readTime": "6 мин",
+    "excerpt": "Где генеративный ИИ действительно экономит время (генерация тест-кейсов, моки), а где пока допускает опасные галлюцинации.",
+    "path": "articles/ai-in-software-testing-2026"
+  },
+  {
+    "id": 8,
+    "slug": "contract-testing-pact",
+    "title": "Контрактное тестирование микросервисов с Pact",
+    "image": "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?auto=format&fit=crop&w=800&q=80",
+    "category": "Архитектура",
+    "date": "08 июля 2026",
+    "readTime": "10 мин",
+    "excerpt": "Как избавиться от тяжелых интеграционных тестов и ловить breaking changes на уровне контрактов провайдера и потребителя.",
+    "path": "articles/contract-testing-pact"
+  },
+  {
+    "id": 9,
+    "slug": "visual-regression-testing-playwright",
+    "title": "Визуальное регрессионное тестирование: Pixelmatch и Playwright Screenshots",
+    "image": "https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?auto=format&fit=crop&w=800&q=80",
+    "category": "Автоматизация",
+    "date": "05 июля 2026",
+    "readTime": "5 мин",
+    "excerpt": "Настройка сборок эталонных скриншотов, порог чувствительности (threshold) и решение проблем со сглаживанием шрифтов на разных ОС.",
+    "path": "articles/visual-regression-testing-playwright"
+  },
+  {
+    "id": 10,
+    "slug": "github-actions-matrix-builds-qa",
+    "title": "Ускоряем прогон тестов в 5 раз с помощью Matrix в GitHub Actions",
+    "image": "https://images.unsplash.com/photo-1618401471353-b98afee0b2eb?auto=format&fit=crop&w=800&q=80",
+    "category": "CI/CD",
+    "date": "02 июля 2026",
+    "readTime": "7 мин",
+    "excerpt": "Параллелизация тестовых наборов, шардирование Playwright тестов и эффективное кэширование зависимостей Node.js/Python.",
+    "path": "articles/github-actions-matrix-builds-qa"
+  },
+  {
+    "id": 11,
+    "slug": "allure-report-integration-guide",
+    "title": "Красивые отчеты Allure Report: Кастомные шаги, вложения и историчность",
+    "image": "https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=800&q=80",
+    "category": "Отчетность",
+    "date": "29 июня 2026",
+    "readTime": "6 мин",
+    "excerpt": "Как прикреплять скриншоты падений, видеозаписи и трассировки прямо в Allure HTML отчет и публикуем его на GitHub Pages.",
+    "path": "articles/allure-report-integration-guide"
+  },
+  {
+    "id": 12,
+    "slug": "security-testing-owasp-zap-automation",
+    "title": "Автоматизация базового сканирования безопасности с OWASP ZAP",
+    "image": "https://images.unsplash.com/photo-1563986768609-322da13575f3?auto=format&fit=crop&w=800&q=80",
+    "category": "Security",
+    "date": "26 июня 2026",
+    "readTime": "8 мин",
+    "excerpt": "Встраиваем прокси-сканер уязвимостей OWASP ZAP в пайплайн автоматизированных тестов для обнаружения XSS и SQLi.",
+    "path": "articles/security-testing-owasp-zap-automation"
+  },
+  {
+    "id": 13,
+    "slug": "mobile-testing-appium-2",
+    "title": "Appium 2.0: Что изменилось и как переписать старые тесты",
+    "image": "https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?auto=format&fit=crop&w=800&q=80",
+    "category": "Mobile QA",
+    "date": "22 июня 2026",
+    "readTime": "7 мин",
+    "excerpt": "Модульная система драйверов и плагинов в Appium 2.0. Поддержка iOS 18 и Android 15 без лишней головной боли.",
+    "path": "articles/mobile-testing-appium-2"
+  },
+  {
+    "id": 14,
+    "slug": "qa-lead-career-roadmap",
+    "title": "Карьерная карта QA инженера 2026: От Junior до QA Architecture",
+    "image": "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=800&q=80",
+    "category": "Карьера",
+    "date": "18 июня 2026",
+    "readTime": "11 мин",
+    "excerpt": "Какие навыки востребованы на рынке сегодня: соотношение Manual / Automation, знания системной архитектуры и Soft Skills.",
+    "path": "articles/qa-lead-career-roadmap"
+  },
+  {
+    "id": 15,
+    "slug": "graphql-testing-strategies",
+    "title": "Стратегии тестирования GraphQL API: Запросы, мутации и подписки",
+    "image": "https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=800&q=80",
+    "category": "API Testing",
+    "date": "15 июня 2026",
+    "readTime": "6 мин",
+    "excerpt": "Проверка валидации схем GraphQL, обработка частичных ошибок (errors array) и функциональное тестирование WebSocket subscriptions.",
+    "path": "articles/graphql-testing-strategies"
+  }
+]

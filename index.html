@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QAlify — Блог об автоматизации и тестировании ПО</title>
+  <meta name="description" content="Современный блог для QA инженеров и автоматизаторов. Разбор Playwright, Selenium, PyTest, Cypress и лучших практик обеспечения качества.">
+  
+  <!-- CSS Stylesheet & IDE Syntax Highlighting -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/tokyo-night-dark.min.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <div class="site-wrapper">
+    <!-- Header (Title only, menu removed per instructions) -->
+    <header class="header">
+      <div class="container">
+        <div class="header-content">
+          <a id="brandLogo" class="brand-logo" title="На главную">
+            <div class="brand-icon">Q</div>
+            <div class="brand-text-group">
+              <span class="brand-title">QAlify Blog</span>
+              <span class="brand-tagline">Все об автоматизации & QA</span>
+            </div>
+          </a>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Container Layout -->
+    <main class="main-layout container">
+      <div class="layout-grid">
+        
+        <!-- Left Main Content Column -->
+        <section class="main-content">
+          
+          <!-- Feed View (Article List) -->
+          <div id="mainFeedView">
+            <div class="feed-header">
+              <h1 class="feed-title">Статьи и публикации</h1>
+              <span id="feedCounter" class="feed-counter">Погрузка...</span>
+            </div>
+
+            <!-- Articles Feed Container -->
+            <div id="articlesFeed" class="articles-grid">
+              <!-- Dynamically populated by app.js -->
+            </div>
+
+            <!-- Load More Pagination Button -->
+            <div id="loadMoreContainer" class="load-more-container">
+              <button id="loadMoreBtn" class="btn-load-more">
+                Загрузить еще
+              </button>
+            </div>
+          </div>
+
+          <!-- Article Detail View (Shown on card click) -->
+          <div id="articleDetailView" class="article-detail-view">
+            <button id="btnBackToFeed" class="btn-back">
+              ← Назад к статьям
+            </button>
+            <div id="articleDetailContent">
+              <!-- Dynamically populated by app.js -->
+            </div>
+          </div>
+
+        </section>
+
+        <!-- Right Sidebar (Banners and Widgets) -->
+        <aside class="sidebar">
+          
+          <!-- Test Promo Banner 1 -->
+          <a href="#/article/playwright-vs-selenium" class="promo-banner banner-1">
+            <div class="banner-img-box">
+              <img src="assets/images/banner-1.png" alt="Курс по Playwright" />
+            </div>
+            <div class="banner-content">
+              <span class="banner-tag">Спецматериал</span>
+              <h3 class="banner-headline">Полный курс по Playwright 2026</h3>
+              <p class="banner-desc">Освойте современный фреймворк E2E-тестирования от Microsoft с нуля до профи.</p>
+              <div class="banner-btn">Читать гайд →</div>
+            </div>
+          </a>
+
+          <!-- Test Promo Banner 2 -->
+          <a href="https://telegram.org" target="_blank" rel="noopener" class="promo-banner banner-2">
+            <div class="banner-img-box">
+              <img src="assets/images/banner-2.png" alt="QA Telegram Сообщество" />
+            </div>
+            <div class="banner-content">
+              <span class="banner-tag">Сообщество</span>
+              <h3 class="banner-headline">QA & Automation Club</h3>
+              <p class="banner-desc">Присоединяйтесь к нашему Telegram-чату: обсуждения, вакансии и разборы тестов.</p>
+              <div class="banner-btn">Вступить в клуб 💬</div>
+            </div>
+          </a>
+
+          <!-- Categories Widget -->
+          <div class="sidebar-widget">
+            <h3 class="widget-title">📌 Категории</h3>
+            <div class="tags-cloud">
+              <span class="tag-item active" data-category="all">Все статьи</span>
+              <span class="tag-item" data-category="Автоматизация">Автоматизация</span>
+              <span class="tag-item" data-category="Python">Python</span>
+              <span class="tag-item" data-category="API Testing">API Testing</span>
+              <span class="tag-item" data-category="DevOps">DevOps</span>
+              <span class="tag-item" data-category="Performance">Performance</span>
+              <span class="tag-item" data-category="Сравнение">Сравнение</span>
+            </div>
+          </div>
+
+        </aside>
+
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <div class="container">
+        <p>© 2026 QAlify Blog. Все материалы подготовлены для инженеров по обеспечению качества.</p>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Highlight.js Syntax Highlighter & App Logic -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+  <script src="js/app.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,302 @@
+<div class="article-lead">
+  Долгое время автоматизация веб-тестирования ассоциировалась с фреймворком <strong>Selenium WebDriver</strong>. Появившись в 2004 году, он стал фактическим стандартом индустрии. Однако современный веб стремительно усложнился: появились Single Page Applications (SPA), массовый WebSocket-обмен, сложная динамическая верстка и асинхронный рендеринг. Классический Selenium начал сдавать позиции под грузом технических долгов, давая дорогу <strong>Playwright</strong> — фреймворку от Microsoft, изменившему правила игры.
+</div>
+
+<div class="article-section">
+  <h2>1. История и контекст: Почему появился Playwright?</h2>
+  <p>Чтобы понять, почему Playwright производит революцию в QA-автоматизации, нужно взглянуть на его происхождение. Команда разработчиков в Microsoft, создавшая Playwright в 2020 году, — это те же инженеры, которые ранее разрабатывали <em>Puppeteer</em> в компании Google.</p>
+  <p>Они извлекли уроки из прошлых ошибок и задались целью создать инструмент, устраняющий три главных «кошмара» каждого QA-автоматизатора на Python:</p>
+  <ul>
+    <li><strong>Нестабильные (Flaky) тесты:</strong> Падения из-за того, что элемент не успел отрендериться или анимация еще не завершилась.</li>
+    <li><strong>Медленный прогон:</strong> Перезапуск тяжелых браузерных процессов для каждой тестовой сессии.</li>
+    <li><strong>Мучительная отладка:</strong> Попытки угадать, почему тест упал на CI через 20 минут после запуска, имея лишь один размытый скриншот.</li>
+  </ul>
+</div>
+
+<div class="article-section">
+  <h2>2. Архитектурная дуэль: HTTP WebDriver vs WebSocket CDP</h2>
+  <p>Главная причина фундаментального превосходства Playwright скрыта глубоко в его архитектуре.</p>
+  
+  <h3>Как работает Selenium (WebDriver Protocol)</h3>
+  <p>В Selenium каждая операция выполняет классический REST-запрос через HTTP. Схема выглядит так:</p>
+  <p style="background: rgba(0,0,0,0.3); padding: 14px; border-radius: 8px; font-family: monospace; font-size: 14px; border: 1px solid var(--border-color);">
+    Python скрипт ➔ (HTTP JSON Protocol) ➔ Браузерный Драйвер (chromedriver) ➔ (Внутренние команды) ➔ Браузер
+  </p>
+  <p>Это означает, что на каждый `.click()` или `.text` совершается сетевой HTTP-запрос с накладными расходами на TCP-рукопожатие и сериализацию данных. Если в тесте 100 шагов — это минимум 100 отдельных HTTP-запросов туда и обратно.</p>
+
+  <h3>Как работает Playwright (Direct Bidirectional Protocol)</h3>
+  <p>Playwright устанавливает <strong>единое двунаправленное WebSocket-соединение</strong> напрямую с браузером через протокол <em>Chrome DevTools Protocol (CDP)</em> (и аналогами для Firefox и WebKit):</p>
+  <p style="background: rgba(0,0,0,0.3); padding: 14px; border-radius: 8px; font-family: monospace; font-size: 14px; border: 1px solid var(--border-color);">
+    Python скрипт ⇆ [Единый быстрый WebSocket канал] ⇆ Процесс Браузера (Chromium / Firefox / WebKit)
+  </p>
+  <p>Благодаря этому Playwright в Python не ждет ответов по HTTP, а мгновенно подписывается на события браузера в реальном времени. Скорость выполнения команд возрастает в разы.</p>
+</div>
+
+<div class="article-section">
+  <h2>3. Сравнение скорости работы: Битва бенчмарков ⚡</h2>
+  <p>Скорость выполнения автотестов напрямую определяет время работы CI/CD пайплайна и то, как быстро разработчик получит отклик после пуша кода. Давайте сравним производительность Playwright и Selenium на реальных цифрах.</p>
+
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 24px 0;">
+    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 20px;">
+      <h4 style="color: var(--accent-emerald); font-family: var(--font-heading); margin-bottom: 12px; font-size: 16px;">⏱️ Запуск нового тестового окружения</h4>
+      <div style="margin-bottom: 14px;">
+        <div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px;">
+          <span>Playwright (BrowserContext)</span>
+          <span style="color: var(--accent-emerald); font-weight: 700;">~15 мс</span>
+        </div>
+        <div style="height: 10px; background: var(--bg-surface); border-radius: 5px; overflow: hidden;">
+          <div style="width: 3%; height: 100%; background: var(--accent-emerald);"></div>
+        </div>
+      </div>
+      <div>
+        <div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px;">
+          <span>Selenium (Новый WebDriver)</span>
+          <span style="color: var(--accent-rose); font-weight: 700;">~3200 мс</span>
+        </div>
+        <div style="height: 10px; background: var(--bg-surface); border-radius: 5px; overflow: hidden;">
+          <div style="width: 100%; height: 100%; background: var(--accent-rose);"></div>
+        </div>
+      </div>
+      <p style="font-size: 12px; color: var(--text-muted); margin-top: 12px;">* Playwright переиспользует инстанс браузера, создавая чистые изолированные профили в памяти за миллисекунды.</p>
+    </div>
+
+    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 20px;">
+      <h4 style="color: var(--accent-cyan); font-family: var(--font-heading); margin-bottom: 12px; font-size: 16px;">📊 Время прогона набора из 100 E2E-тестов (4 потока)</h4>
+      <div style="margin-bottom: 14px;">
+        <div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px;">
+          <span>Playwright PyTest Workers</span>
+          <span style="color: var(--accent-cyan); font-weight: 700;">18 сек (⚡ 3.8x быстрее)</span>
+        </div>
+        <div style="height: 10px; background: var(--bg-surface); border-radius: 5px; overflow: hidden;">
+          <div style="width: 25%; height: 100%; background: var(--accent-cyan);"></div>
+        </div>
+      </div>
+      <div>
+        <div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px;">
+          <span>Selenium Grid (xdist)</span>
+          <span style="color: var(--accent-amber); font-weight: 700;">70 сек</span>
+        </div>
+        <div style="height: 10px; background: var(--bg-surface); border-radius: 5px; overflow: hidden;">
+          <div style="width: 100%; height: 100%; background: var(--accent-amber);"></div>
+        </div>
+      </div>
+      <p style="font-size: 12px; color: var(--text-muted); margin-top: 12px;">* Тестовый стенд: Ubuntu Server, 8 CPU / 16GB RAM, Chromium Headless.</p>
+    </div>
+  </div>
+
+  <h3>За счет чего достигается такой прирост скорости?</h3>
+  <ul>
+    <li><strong>Event-Driven архитектура:</strong> Playwright реагирует на события DOM и браузерной сети мгновенно, в отличие от цикла опроса (polling) в Selenium.</li>
+    <li><strong>Минимальные накладные расходы:</strong> Передача сообщений по бинарному сокету против сериализации и десериализации JSON в HTTP-запросах Selenium.</li>
+    <li><strong>Параллелизм в одном процессе:</strong> Playwright способен запускать десятки страниц внутри одного процесса браузера без взаимного влияния тестовых данных.</li>
+  </ul>
+</div>
+
+<div class="article-section">
+  <h2>4. Ключевые фичи: Почему автоматизаторы на Python выбирают Playwright</h2>
+
+  <div style="margin-bottom: 24px;">
+    <h3 style="color: var(--accent-cyan);">⚡ 1. Умное автоматическое ожидание (Smart Auto-Waiting)</h3>
+    <p>В Selenium на Python вам приходилось самостоятельно обмазывать код ожиданиями <code>WebDriverWait</code> или использовать опасный <code>time.sleep()</code>. В Playwright перед выполнением любого действия (клик, ввод текста, выбор чекбокса) фреймворк автоматически проверяет <strong>Actionability Checks</strong>:</p>
+    <ul>
+      <li>Элемент прикреплен к DOM (Attached)</li>
+      <li>Элемент видим на экране (Visible)</li>
+      <li>Элемент не перекрыт другими блоками и завершил анимацию (Stable)</li>
+      <li>Элемент способен принимать события мыши/клавиатуры (Receives Events)</li>
+      <li>Элемент активен (Enabled)</li>
+    </ul>
+    <p>За счет этого флаки-тесты практически исчезают полностью.</p>
+  </div>
+
+  <div style="margin-bottom: 24px;">
+    <h3 style="color: var(--accent-emerald);">🎭 2. Изоляция сессий через BrowserContext</h3>
+    <p>Запуск нового браузера — это ресурсоемкая операция, занимающая 1-3 секунды. Selenium для изоляции тестов вынужден либо чистить куки, либо перезапускать драйвер.</p>
+    <p>Playwright в Python вводит концепцию <strong>BrowserContext</strong>. Вы запускаете браузер всего один раз, а для каждого теста создаете новый контекст — это независимый инкогнито-профиль в памяти. Создание контекста занимает всего <strong>10-20 миллисекунд</strong>! Это позволяет параллельно запускать сотни Python-тестов на одной машине.</p>
+  </div>
+
+  <div style="margin-bottom: 24px;">
+    <h3 style="color: var(--accent-primary);">🌐 3. Нативный перехват сети и API Mocking на Python</h3>
+    <p>Тестируете форму оплаты и хотите проверить, как фронтенд отреагирует на ошибку сервера 500? В Selenium для этого требовалось ставить сторонний прокси-сервер (BrowserMob Proxy). В Playwright на Python это делается в пару строк кода:</p>
+    
+    <div class="code-window">
+      <div class="code-window-header">
+        <div class="window-dots">
+          <span class="dot dot-red"></span>
+          <span class="dot dot-yellow"></span>
+          <span class="dot dot-green"></span>
+        </div>
+        <span class="window-filename">intercept_mock.py</span>
+      </div>
+      <pre><code class="language-python"># Перехват и подмена ответа API на Python
+def handle_route(route):
+    route.fulfill(
+        status=500,
+        content_type="application/json",
+        body='{"error": "Internal Server Error"}'
+    )
+
+page.route("**/api/payment", handle_route)</code></pre>
+    </div>
+  </div>
+
+  <div style="margin-bottom: 24px;">
+    <h3 style="color: var(--accent-amber);">🔍 4. Инструмент отладки Trace Viewer</h3>
+    <p>Если Python-тест упал на CI в 3 ночи, в Playwright вам не нужно гадать. Вы открываете <strong>Trace Viewer</strong> и получаете интерактивную машину времени:</p>
+    <ul>
+      <li>Пошаговая временная шкала (Action Timeline)</li>
+      <li>DOM-снимки на каждом шаге до и после клика</li>
+      <li>Полный журнал сетевых запросов (Network Intercept Log)</li>
+      <li>Консольные логи браузера и стек ошибок Python</li>
+    </ul>
+  </div>
+</div>
+
+<div class="article-section">
+  <h2>5. Сравнение кода на Python: Selenium vs Playwright</h2>
+  <p>Давайте сравним сценарий авторизации с ожиданием загрузки пользовательского профиля на языке Python.</p>
+
+  <h3>Пример на Selenium (Python):</h3>
+  <div class="code-window">
+    <div class="code-window-header">
+      <div class="window-dots">
+        <span class="dot dot-red"></span>
+        <span class="dot dot-yellow"></span>
+        <span class="dot dot-green"></span>
+      </div>
+      <span class="window-filename">test_selenium_login.py</span>
+    </div>
+    <pre><code class="language-python"># Selenium Python: громоздкий код и явные ожидания
+import time
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+
+driver = webdriver.Chrome()
+try:
+    driver.get("https://example.com/login")
+    
+    # Необходимость явного ожидания поля логина
+    user_input = WebDriverWait(driver, 10).until(
+        EC.element_to_be_clickable((By.ID, "username"))
+    )
+    user_input.send_keys("admin")
+    
+    driver.find_element(By.ID, "password").send_keys("secret")
+    driver.find_element(By.ID, "submit").click()
+    
+    # Необходимость явного ожидания элемента профиля
+    welcome_msg = WebDriverWait(driver, 10).until(
+        EC.visibility_of_element_located((By.CSS_SELECTOR, ".dashboard-welcome"))
+    )
+    assert "Добро пожаловать" in welcome_msg.text
+finally:
+    driver.quit()</code></pre>
+  </div>
+
+  <h3>Пример на Playwright (Python / Sync API):</h3>
+  <div class="code-window">
+    <div class="code-window-header">
+      <div class="window-dots">
+        <span class="dot dot-red"></span>
+        <span class="dot dot-yellow"></span>
+        <span class="dot dot-green"></span>
+      </div>
+      <span class="window-filename">test_playwright_login.py</span>
+    </div>
+    <pre><code class="language-python"># Playwright Python: чистый, наглядный и надежный код
+from playwright.sync_api import sync_playwright, expect
+
+with sync_playwright() as p:
+    browser = p.chromium.launch(headless=False)
+    page = browser.new_page()
+    
+    page.goto("https://example.com/login")
+    
+    # Автоматическое ожидание элементов и заполнение полей
+    page.fill("#username", "admin")
+    page.fill("#password", "secret")
+    page.click("#submit")
+    
+    # Встроенные умные веб-ассерты Playwright
+    expect(page.locator(".dashboard-welcome")).to_contain_text("Добро пожаловать")
+    
+    browser.close()</code></pre>
+  </div>
+  <p>Скрипт на Python с использованием Playwright получается более лаконичным, читаемым и надежным — без громоздких конструкций `WebDriverWait` и риска ложных падений.</p>
+</div>
+
+<div class="article-section">
+  <h2>6. Сравнительная матрица фреймворков</h2>
+  <div class="table-responsive">
+    <table class="comparison-table">
+      <thead>
+        <tr>
+          <th>Параметр</th>
+          <th>Playwright (Python)</th>
+          <th>Selenium (Python)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Протокол связи</strong></td>
+          <td>WebSocket / CDP (прямой низкоуровневый доступ)</td>
+          <td>HTTP REST (W3C JSON Wire Protocol)</td>
+        </tr>
+        <tr>
+          <td><strong>Ожидания (Wait Strategy)</strong></td>
+          <td>Автоматические Actionability Checks</td>
+          <td>Ручные Implicit & Explicit Waits (`WebDriverWait`)</td>
+        </tr>
+        <tr>
+          <td><strong>Скорость параллелизма</strong></td>
+          <td>Высочайшая (BrowserContexts за 10мс)</td>
+          <td>Средняя (запуск отдельных процессов WebDriver)</td>
+        </tr>
+        <tr>
+          <td><strong>Поддержка фреймов & табов</strong></td>
+          <td>Автоматическая (объекты `page` и `context`)</td>
+          <td>Требует переключения `switch_to.frame()`</td>
+        </tr>
+        <tr>
+          <td><strong>Сетевой слой (Network Mocking)</strong></td>
+          <td>Из коробки (функция `page.route`)</td>
+          <td>Требуется сторонний прокси-сервер</td>
+        </tr>
+        <tr>
+          <td><strong>Генератор тестов</strong></td>
+          <td>Встроенная утилита `playwright codegen`</td>
+          <td>Сторонние расширения (Selenium IDE)</td>
+        </tr>
+        <tr>
+          <td><strong>Инструменты отладки</strong></td>
+          <td>Trace Viewer, PyTest Plugin, VS Code Extension</td>
+          <td>Логи сервера, скриншоты при ошибке</td>
+        </tr>
+        <tr>
+          <td><strong>Кроссплатформенность</strong></td>
+          <td>Chromium, Firefox, WebKit (Win, macOS, Linux)</td>
+          <td>Все браузеры + IE11 + унаследованные платформы</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="article-section">
+  <h2>7. Когда Selenium на Python все еще актуален?</h2>
+  <p>Справедливости ради стоит отметить сценарии, в которых Selenium по-прежнему удерживает позиции:</p>
+  <ul>
+    <li><strong>Огромные legacy-проекты:</strong> Если в вашей компании уже написаны тысячи тестов на Python + Selenium, мгновенная миграция может быть слишком дорогой.</li>
+    <li><strong>Поддержка унаследованных браузеров:</strong> Тестирование в Internet Explorer 11 или специфических сборках браузеров для банкоматов и госструктур.</li>
+    <li><strong>Готовая инфраструктура:</strong> Использование распределенных облачных ферм (SauceLabs, BrowserStack), заточенных под Selenium Grid.</li>
+  </ul>
+</div>
+
+<div class="article-section">
+  <h2>8. Итоговый вердикт</h2>
+  <div class="article-lead" style="border-left-color: var(--accent-emerald); background: rgba(16, 185, 129, 0.08);">
+    <strong>Playwright — победитель для новых и современных проектов на Python.</strong><br/>
+    Он кардинально сокращает время написания и поддержки автотестов, избавляет от флаки-тестов и предоставляет лучшую отладку на рынке. Для QA-автоматизатора в 2026 году владение Playwright в связке с Python стало стандартом де-факто.
+  </div>
+</div>

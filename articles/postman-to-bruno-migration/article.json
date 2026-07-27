@@ -1,0 +1,10 @@
+{
+  "id": 4,
+  "slug": "postman-to-bruno-migration",
+  "title": "Почему мы перешли с Postman на Bruno для тестирования API",
+  "image": "https://images.unsplash.com/photo-1618401471353-b98afee0b2eb?auto=format&fit=crop&w=800&q=80",
+  "category": "API Testing",
+  "date": "19 июля 2026",
+  "readTime": "5 мин",
+  "excerpt": "Платные ограничения Postman и хранение данных в облаке заставили нас искать альтернативу. Разбираем оффлайн-клиент Bruno на Bru-файлах."
+}

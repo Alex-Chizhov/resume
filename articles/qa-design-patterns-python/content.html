@@ -1,0 +1,649 @@
+<div class="article-lead">
+  Качественная архитектурная база — это отличие профессионального тестового фреймворка от набора хрупких скриптов. По мере роста тестового покрытия с 10 до 1000+ автотестов без применения паттернов проектирования проект неизбежно превращается в «спагетти-код», где одно изменение селектора приводит к редактированию десятков файлов. В этой статье мы подробно разберем ключевые паттерны проектирования в QA на языке <strong>Python</strong>: от классических паттернов GoF до паттернов тестирования пользовательских интерфейсов.
+</div>
+
+<!-- Table of Contents (TOC) with Anchors -->
+<div class="toc-container">
+  <div class="toc-title">📑 Оглавление статьи</div>
+  <div class="toc-grid">
+    
+    <div class="toc-section-block">
+      <span class="toc-section-label">Часть 1. Классика GoF</span>
+      <ul class="toc-list">
+        <li><a href="#pattern-singleton">1. Singleton (Одиночка)</a></li>
+        <li><a href="#pattern-builder">2. Builder (Test Data Builder)</a></li>
+        <li><a href="#pattern-facade">3. Facade (Фасад)</a></li>
+        <li><a href="#pattern-factory">4. Factory (Фабрика)</a></li>
+      </ul>
+    </div>
+
+    <div class="toc-section-block">
+      <span class="toc-section-label">Часть 2. Паттерны UI</span>
+      <ul class="toc-list">
+        <li><a href="#pattern-pom">5. Page Object Model (POM)</a></li>
+        <li><a href="#pattern-page-factory">6. Page Factory (Ленивая фабрика)</a></li>
+        <li><a href="#pattern-page-element">7. Page Element (Component)</a></li>
+        <li><a href="#pattern-page-builder">8. Page Builder (Динамический)</a></li>
+      </ul>
+    </div>
+
+    <div class="toc-section-block">
+      <span class="toc-section-label">Часть 3. Продвинутые & Итоги</span>
+      <ul class="toc-list">
+        <li><a href="#pattern-fluent">9. Fluent Interface</a></li>
+        <li><a href="#pattern-screenplay">10. Screenplay Pattern</a></li>
+        <li><a href="#pattern-table">📊 Таблица всех паттернов</a></li>
+        <li><a href="#pattern-summary">💡 Рекомендации архитектора</a></li>
+      </ul>
+    </div>
+
+  </div>
+</div>
+
+<div class="article-section">
+  <h2>Часть 1. Классические паттерны GoF в автоматизации</h2>
+
+  <div id="pattern-singleton" style="margin-bottom: 36px;">
+    <h3>1. Singleton (Одиночка)</h3>
+    <p><strong>Зачем нужен:</strong> Гарантирует наличие ровно одного экземпляра объекта во всей системе и предоставляет к нему глобальную точку доступа.</p>
+    
+    <div style="background: rgba(99, 102, 241, 0.1); border-left: 4px solid var(--accent-primary); padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 12px 0 16px; font-size: 14px;">
+      <strong style="color: var(--accent-primary);">💡 Применение в автотестах:</strong> Применяется для управления единым подключением к БД, глобальной конфигурацией тестового стенда (<code>ConfigManager</code>) или пулом логгеров. Гарантирует, что файл настроек читается ровно один раз и защищен от случайного переопределения во время прогона.
+    </div>
+
+    <div class="code-window">
+      <div class="code-window-header">
+        <div class="window-dots">
+          <span class="dot dot-red"></span>
+          <span class="dot dot-yellow"></span>
+          <span class="dot dot-green"></span>
+        </div>
+        <span class="window-filename">singleton_config.py</span>
+      </div>
+      <pre><code class="language-python"># Паттерн Singleton на Python для менеджера конфигурации
+class ConfigManager:
+    _instance = None
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super(ConfigManager, cls).__new__(cls)
+            # Инициализация единых настроек
+            cls._instance.base_url = "https://staging.example.com"
+            cls._instance.timeout = 15
+            cls._instance.browser = "chromium"
+        return cls._instance
+
+# Использование в автотестах:
+config1 = ConfigManager()
+config2 = ConfigManager()
+
+assert config1 is config2  # Истинный Singleton: один и тот же объект в памяти</code></pre>
+    </div>
+  </div>
+
+  <div id="pattern-builder" style="margin-bottom: 36px;">
+    <h3>2. Builder (Строитель / Test Data Builder)</h3>
+    <p><strong>Зачем нужен:</strong> Позволяет пошагово конструировать сложные объекты тестовых данных с разумными значениями по умолчанию.</p>
+
+    <div style="background: rgba(16, 185, 129, 0.1); border-left: 4px solid var(--accent-emerald); padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 12px 0 16px; font-size: 14px;">
+      <strong style="color: var(--accent-emerald);">💡 Применение в автотестах:</strong> Применяется для генерации сложных тестовых данных (пользователи, банковские транзакции, заказы в интернет-магазине). Позволяет создавать объекты с корректными дефолтными атрибутами и менять только нужные свойства в один клик.
+    </div>
+
+    <div class="code-window">
+      <div class="code-window-header">
+        <div class="window-dots">
+          <span class="dot dot-red"></span>
+          <span class="dot dot-yellow"></span>
+          <span class="dot dot-green"></span>
+        </div>
+        <span class="window-filename">test_data_builder.py</span>
+      </div>
+      <pre><code class="language-python"># Паттерн Builder для генерации случайного пользователя
+from dataclasses import dataclass
+
+@dataclass
+class User:
+    username: str
+    email: str
+    role: str
+    is_active: bool
+
+class UserBuilder:
+    def __init__(self):
+        # Дефолтные валидные значения
+        self._username = "test_user_99"
+        self._email = "user99@example.com"
+        self._role = "USER"
+        self._is_active = True
+
+    def with_role(self, role: str):
+        self._role = role
+        return self  # Fluent-интерфейс
+
+    def as_inactive(self):
+        self._is_active = False
+        return self
+
+    def build(self) -> User:
+        return User(
+            username=self._username,
+            email=self._email,
+            role=self._role,
+            is_active=self._is_active
+        )
+
+# Использование в тесте:
+admin_user = UserBuilder().with_role("ADMIN").build()
+banned_user = UserBuilder().as_inactive().build()</code></pre>
+    </div>
+  </div>
+
+  <div id="pattern-facade" style="margin-bottom: 36px;">
+    <h3>3. Facade (Фасад)</h3>
+    <p><strong>Зачем нужен:</strong> Предоставляет простой единый интерфейс к сложной подсистеме из множества сервисов.</p>
+
+    <div style="background: rgba(6, 182, 212, 0.1); border-left: 4px solid var(--accent-cyan); padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 12px 0 16px; font-size: 14px;">
+      <strong style="color: var(--accent-cyan);">💡 Применение в автотестах:</strong> Применяется для скрытия сложных процедур предустановки состояния (Pre-conditions). Объединяет вызовы REST API, прямые запросы к БД и перехват почтовых сервисов в одну понятную строчку метода перед вызовом UI-теста.
+    </div>
+
+    <div class="code-window">
+      <div class="code-window-header">
+        <div class="window-dots">
+          <span class="dot dot-red"></span>
+          <span class="dot dot-yellow"></span>
+          <span class="dot dot-green"></span>
+        </div>
+        <span class="window-filename">user_registration_facade.py</span>
+      </div>
+      <pre><code class="language-python"># Паттерн Facade объединяет работу с API, БД и Почтой
+class RegistrationFacade:
+    def __init__(self, api_client, db_client, email_service):
+        self.api = api_client
+        self.db = db_client
+        self.email = email_service
+
+    def register_and_verify_user(self, user_data) -> int:
+        # 1. Отправляем запрос на регистрацию через API
+        user_id = self.api.post_user(user_data)
+        
+        # 2. Перехватом из почтового сервиса получаем токен
+        token = self.email.get_verification_token(user_data.email)
+        
+        # 3. В БД активируем пользователя напрямую
+        self.db.set_user_active(user_id, token)
+        return user_id
+
+# В автотесте весь сложный процесс выполняется в одну понятную строчку:
+user_id = facade.register_and_verify_user(test_user)</code></pre>
+    </div>
+  </div>
+
+  <div id="pattern-factory" style="margin-bottom: 36px;">
+    <h3>4. Factory (Фабрика / Factory Method)</h3>
+    <p><strong>Зачем нужен:</strong> Делегирует создание объектов специальному классу-фабрике на основе входных параметров.</p>
+
+    <div style="background: rgba(245, 158, 11, 0.1); border-left: 4px solid var(--accent-amber); padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 12px 0 16px; font-size: 14px;">
+      <strong style="color: var(--accent-amber);">💡 Применение в автотестах:</strong> Применяется для динамической инициализации браузерных драйверов (Chromium, Firefox, WebKit, эмуляторы мобильных устройств) на основе флагов командной строки CI/CD или файлов конфигурации (<code>pytest --browser=firefox</code>).
+    </div>
+
+    <div class="code-window">
+      <div class="code-window-header">
+        <div class="window-dots">
+          <span class="dot dot-red"></span>
+          <span class="dot dot-yellow"></span>
+          <span class="dot dot-green"></span>
+        </div>
+        <span class="window-filename">browser_factory.py</span>
+      </div>
+      <pre><code class="language-python"># Паттерн Factory Method для создания инстансов браузеров
+class BrowserFactory:
+    @staticmethod
+    def create_browser(playwright_instance, browser_type: str = "chromium"):
+        browser_type = browser_type.lower()
+        if browser_type == "chromium":
+            return playwright_instance.chromium.launch(headless=True)
+        elif browser_type == "firefox":
+            return playwright_instance.firefox.launch(headless=True)
+        elif browser_type == "webkit":
+            return playwright_instance.webkit.launch(headless=True)
+        else:
+            raise ValueError(f"Неподдерживаемый тип браузера: {browser_type}")
+
+# Использование в PyTest фикстуре:
+browser = BrowserFactory.create_browser(p, config.browser_name)</code></pre>
+    </div>
+  </div>
+</div>
+
+<div class="article-section">
+  <h2>Часть 2. Специализированные паттерны тестирования UI</h2>
+
+  <div id="pattern-pom" style="margin-bottom: 36px;">
+    <h3>5. Page Object Model (POM)</h3>
+    <p><strong>Зачем нужен:</strong> Фундаментальный паттерн UI-автоматизации. Каждая страница представляется в виде класса, где поля — это селекторы, а методы — действия пользователя.</p>
+
+    <div style="background: rgba(99, 102, 241, 0.1); border-left: 4px solid var(--accent-primary); padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 12px 0 16px; font-size: 14px;">
+      <strong style="color: var(--accent-primary);">💡 Применение в автотестах:</strong> Применяется для изоляции структуры веб-страниц от проверок в тестах. Изменение верстки или селекторов на фронтенде правится в одном месте в классе страницы, а не в сотне автотестов.
+    </div>
+
+    <div class="code-window">
+      <div class="code-window-header">
+        <div class="window-dots">
+          <span class="dot dot-red"></span>
+          <span class="dot dot-yellow"></span>
+          <span class="dot dot-green"></span>
+        </div>
+        <span class="window-filename">login_page_pom.py</span>
+      </div>
+      <pre><code class="language-python"># Паттерн Page Object Model (Playwright Python)
+from playwright.sync_api import Page, expect
+
+class LoginPage:
+    def __init__(self, page: Page):
+        self.page = page
+        self._username_input = page.locator("#username")
+        self._password_input = page.locator("#password")
+        self._login_button = page.locator("#btn-submit")
+        self._error_message = page.locator(".alert-danger")
+
+    def navigate(self):
+        self.page.goto("https://example.com/login")
+
+    def login(self, username: str, password: str):
+        self._username_input.fill(username)
+        self._password_input.fill(password)
+        self._login_button.click()
+
+    def should_show_error(self, expected_text: str):
+        expect(self._error_message).to_contain_text(expected_text)</code></pre>
+    </div>
+  </div>
+
+  <div id="pattern-page-factory" style="margin-bottom: 36px;">
+    <h3>6. Page Factory (Ленивая фабрика элементов)</h3>
+    <p><strong>Зачем нужен:</strong> Исторический паттерн из экосистемы Java Selenium, предназначенный для отложенной (ленивой) инициализации веб-элементов на странице.</p>
+
+    <div style="background: rgba(245, 158, 11, 0.1); border-left: 4px solid var(--accent-amber); padding: 14px 18px; border-radius: 0 8px 8px 0; margin: 12px 0 16px; font-size: 14px; line-height: 1.6;">
+      <strong style="color: var(--accent-amber); font-size: 15px;">⚠️ Почему Page Factory — это Java-паттерн и не применяется в Python:</strong><br/>
+      <ul>
+        <li><strong>В Java:</strong> <code>PageFactory</code> является нативным классом из официальной библиотеки <code>org.openqa.selenium.support.PageFactory</code>. Он использует аннотации <code>@FindBy</code> для автоинициализации элементов через прокси-объекты.</li>
+        <li><strong>В Python:</strong> Нативной библиотеки Page Factory не существует. Попытки слепо скопировать аннотации Java в Python с помощью сторонних пакетов считаются непитоничными (unpythonic).</li>
+        <li><strong>В Playwright Python:</strong> Локаторы <code>page.locator("#username")</code> <strong>уже являются ленивыми из коробки</strong>. При объявлении локатор НЕ ищет элемент в DOM, а обращается к браузеру только в момент вызова действия (<code>.click()</code>, <code>.fill()</code>). Специальные обертки Page Factory в Python просто не нужны.</li>
+      </ul>
+    </div>
+
+    <h4>Классический пример на Java (где паттерн нативен):</h4>
+    <div class="code-window">
+      <div class="code-window-header">
+        <div class="window-dots">
+          <span class="dot dot-red"></span>
+          <span class="dot dot-yellow"></span>
+          <span class="dot dot-green"></span>
+        </div>
+        <span class="window-filename">LoginPageFactory.java</span>
+      </div>
+      <pre><code class="language-java">// Нативная реализация Page Factory в Java Selenium
+import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.WebElement;
+import org.openqa.selenium.support.FindBy;
+import org.openqa.selenium.support.PageFactory;
+
+public class LoginPageFactory {
+    private WebDriver driver;
+
+    // Аннотации @FindBy ищут элементы лениво при вызове
+    @FindBy(id = "username")
+    private WebElement usernameInput;
+
+    @FindBy(id = "password")
+    private WebElement passwordInput;
+
+    @FindBy(id = "submit-btn")
+    private WebElement submitButton;
+
+    public LoginPageFactory(WebDriver driver) {
+        this.driver = driver;
+        // Инициализация элементов прокси-объектами
+        PageFactory.initElements(driver, this);
+    }
+
+    public void login(String user, String pass) {
+        usernameInput.sendKeys(user);
+        passwordInput.sendKeys(pass);
+        submitButton.click();
+    }
+}</code></pre>
+    </div>
+
+    <h4>Питонический эквивалент на Python (через @property):</h4>
+    <div class="code-window">
+      <div class="code-window-header">
+        <div class="window-dots">
+          <span class="dot dot-red"></span>
+          <span class="dot dot-yellow"></span>
+          <span class="dot dot-green"></span>
+        </div>
+        <span class="window-filename">page_factory_pythonic.py</span>
+      </div>
+      <pre><code class="language-python"># Питонический аналог ленивого поиска элементов на Python
+class DashboardPage:
+    def __init__(self, page):
+        self.page = page
+
+    # В Python вычисляемые свойства @property выполняют роль ленивой фабрики
+    @property
+    def user_profile_badge(self):
+        # Ищется в DOM строго в момент обращения: page.user_profile_badge
+        return self.page.locator(".user-profile-badge")
+
+    @property
+    def logout_button(self):
+        return self.page.locator("#logout-btn")
+
+    def logout(self):
+        self.logout_button.click()</code></pre>
+    </div>
+
+    <div style="background: rgba(16, 185, 129, 0.1); border-left: 4px solid var(--accent-emerald); padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 16px 0; font-size: 14px;">
+      <strong style="color: var(--accent-emerald);">💡 Применение в автотестах:</strong> Применяется для отложенного (ленивого) поиска динамических элементов на AJAX/SPA страницах. Селекторы не ищутся при создании объекта страницы, а запрашиваются у браузера ровно в момент выполнения шага теста.
+    </div>
+  </div>
+
+  <div id="pattern-page-element" style="margin-bottom: 36px;">
+    <h3>7. Page Element (Component Object / Atomic Design)</h3>
+    <p><strong>Зачем нужен:</strong> Разбивает гигантские Page Object классы на мелкие переиспользуемые UI-компоненты (шапка сайта, меню, таблицы, модальные окна).</p>
+
+    <div style="background: rgba(6, 182, 212, 0.1); border-left: 4px solid var(--accent-cyan); padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 12px 0 16px; font-size: 14px;">
+      <strong style="color: var(--accent-cyan);">💡 Применение в автотестах:</strong> Применяется для моделирования сквозных интерфейсных элементов (шапка сайта, боковое меню, таблицы данных, модалки), которые повторяются на десятках разных страниц системы.
+    </div>
+
+    <div class="code-window">
+      <div class="code-window-header">
+        <div class="window-dots">
+          <span class="dot dot-red"></span>
+          <span class="dot dot-yellow"></span>
+          <span class="dot dot-green"></span>
+        </div>
+        <span class="window-filename">page_element_component.py</span>
+      </div>
+      <pre><code class="language-python"># Паттерн Page Element / Component Object
+class HeaderComponent:
+    def __init__(self, root_locator):
+        self._root = root_locator
+        self.search_input = self._root.locator("input[type='search']")
+        self.cart_icon = self._root.locator(".cart-icon")
+
+    def search_for(self, query: str):
+        self.search_input.fill(query)
+        self.search_input.press("Enter")
+
+class HomePage:
+    def __init__(self, page):
+        self.page = page
+        # Встраиваем компонент шапки сайта в объект страницы
+        self.header = HeaderComponent(page.locator("header.site-header"))</code></pre>
+    </div>
+  </div>
+
+  <div id="pattern-page-builder" style="margin-bottom: 36px;">
+    <h3>8. Page Builder (Строитель динамических страниц)</h3>
+    <p><strong>Зачем нужен:</strong> Предназначен для создания динамических конфигураций страниц во время выполнения. Этот паттерн решает проблему, когда веб-интерфейс состоит из произвольного набора виджетов (например, кастомизируемые дашборды, CMS-системы, Tilda, Notion), и создавать отдельный Page Object под каждую комбинацию блоков бессмысленно.</p>
+
+    <div style="background: rgba(245, 158, 11, 0.1); border-left: 4px solid var(--accent-amber); padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 12px 0 16px; font-size: 14px;">
+      <strong style="color: var(--accent-amber);">💡 Применение в автотестах:</strong> Применяется при тестировании конструкторов сайтов и кастомных веб-панелей (CMS, Tilda, Notion, админки), где структура страницы собирается из произвольного набора пользовательских блоков прямо на лету.
+    </div>
+
+    <p>Ниже представлен полный пример: сначала мы определяем компоненты-виджеты, затем строитель `DashboardPageBuilder`, и показываем, **как автотест обращается к собранной странице**.</p>
+
+    <div class="code-window">
+      <div class="code-window-header">
+        <div class="window-dots">
+          <span class="dot dot-red"></span>
+          <span class="dot dot-yellow"></span>
+          <span class="dot dot-green"></span>
+        </div>
+        <span class="window-filename">test_page_builder_usage.py</span>
+      </div>
+      <pre><code class="language-python"># 1. Компоненты-виджеты для сборки
+class HeaderComponent:
+    def __init__(self, locator):
+        self.locator = locator
+    def search(self, text):
+        self.locator.locator("input").fill(text)
+
+class TableWidgetComponent:
+    def __init__(self, locator):
+        self.locator = locator
+    def get_row_count(self):
+        return self.locator.locator("tr").count()
+
+class AnalyticsWidgetComponent:
+    def __init__(self, locator):
+        self.locator = locator
+    def get_total_sales(self):
+        return self.locator.locator(".sales-value").inner_text()
+
+
+# 2. Динамический объект страницы, хранящий список собранных виджетов
+class DynamicDashboardPage:
+    def __init__(self, page, widgets: dict):
+        self.page = page
+        self.widgets = widgets
+
+    def widget(self, name: str):
+        """Возвращает нужный виджет на странице по его имени"""
+        return self.widgets[name]
+
+
+# 3. Строитель страницы (Page Builder)
+class DashboardPageBuilder:
+    def __init__(self, page):
+        self.page = page
+        self._widgets = {}
+
+    def with_header(self):
+        self._widgets["header"] = HeaderComponent(self.page.locator("header"))
+        return self
+
+    def with_table(self, container_selector: str):
+        self._widgets["table"] = TableWidgetComponent(self.page.locator(container_selector))
+        return self
+
+    def with_analytics(self, container_selector: str):
+        self._widgets["analytics"] = AnalyticsWidgetComponent(self.page.locator(container_selector))
+        return self
+
+    def build(self) -> DynamicDashboardPage:
+        """Сборка готового объекта страницы"""
+        return DynamicDashboardPage(self.page, self._widgets)
+
+
+# =====================================================================
+# 4. Использование в автотесте: сборка и обращение к элементам
+# =====================================================================
+def test_user_custom_dashboard(page):
+    page.goto("https://example.com/dashboard")
+
+    # Сборка кастомного дашборда пользователя из 3 блоков
+    dashboard = (
+        DashboardPageBuilder(page)
+        .with_header()
+        .with_analytics("#sales-widget-container")
+        .with_table("#recent-orders-table")
+        .build()
+    )
+
+    # Обращение к элементам динамически собранной страницы в тесте:
+    dashboard.widget("header").search("Отчет за июль")
+    
+    sales_total = dashboard.widget("analytics").get_total_sales()
+    assert sales_total == "1 500 000 ₽"
+
+    rows_count = dashboard.widget("table").get_row_count()
+    assert rows_count > 0</code></pre>
+    </div>
+  </div>
+</div>
+
+<div class="article-section">
+  <h2>Часть 3. Популярные продвинутые паттерны в QA 🚀</h2>
+
+  <div id="pattern-fluent" style="margin-bottom: 36px;">
+    <h3>9. Fluent Interface (Цепочечные вызовы)</h3>
+    <p><strong>Зачем нужен:</strong> Методы классов возвращают `self` или следующий Page Object, формируя естественный легкочитаемый DSL.</p>
+
+    <div style="background: rgba(99, 102, 241, 0.1); border-left: 4px solid var(--accent-primary); padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 12px 0 16px; font-size: 14px;">
+      <strong style="color: var(--accent-primary);">💡 Применение в автотестах:</strong> Применяется для создания выразительного предметно-ориентированного языка (DSL) автотестов. Позволяет писать сценарии в виде непрерывных цепочек вызовов, читаемых как естественный английский текст.
+    </div>
+
+    <div class="code-window">
+      <div class="code-window-header">
+        <div class="window-dots">
+          <span class="dot dot-red"></span>
+          <span class="dot dot-yellow"></span>
+          <span class="dot dot-green"></span>
+        </div>
+        <span class="window-filename">fluent_interface.py</span>
+      </div>
+      <pre><code class="language-python"># Паттерн Fluent Interface (Method Chaining)
+class FluentLoginPage:
+    def __init__(self, page):
+        self.page = page
+
+    def enter_username(self, username: str):
+        self.page.fill("#user", username)
+        return self  # Возвращаем тот же объект
+
+    def enter_password(self, password: str):
+        self.page.fill("#pass", password)
+        return self
+
+    def submit_and_go_to_dashboard(self):
+        self.page.click("#submit")
+        return DashboardPage(self.page)  # Переходим к следующему Page Object
+
+# Красивое использование в автотесте:
+dashboard = (
+    FluentLoginPage(page)
+    .enter_username("admin")
+    .enter_password("secret")
+    .submit_and_go_to_dashboard()
+)</code></pre>
+    </div>
+  </div>
+
+  <div id="pattern-screenplay" style="margin-bottom: 36px;">
+    <h3>10. Screenplay Pattern (Паттерн Актер-Задача)</h3>
+    <p><strong>Зачем нужен:</strong> Состоит из Актеров (Actors), их Способностей (Abilities), Задач (Tasks) и Вопросов (Questions).</p>
+
+    <div style="background: rgba(16, 185, 129, 0.1); border-left: 4px solid var(--accent-emerald); padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 12px 0 16px; font-size: 14px;">
+      <strong style="color: var(--accent-emerald);">💡 Применение в автотестах:</strong> Применяется при масштабировании фреймворков тестирования в крупных командах с десятками QA. Четко разделяет Актеров, их Способности и Задачи, исключая появление раздутых классов-гигантов и дублирование сценариев.
+    </div>
+
+    <div class="code-window">
+      <div class="code-window-header">
+        <div class="window-dots">
+          <span class="dot dot-red"></span>
+          <span class="dot dot-yellow"></span>
+          <span class="dot dot-green"></span>
+        </div>
+        <span class="window-filename">screenplay_pattern.py</span>
+      </div>
+      <pre><code class="language-python"># Упрощенная реализация Screenplay Pattern на Python
+class Actor:
+    def __init__(self, name: str):
+        self.name = name
+
+    def attempts_to(self, task):
+        task.perform_as(self)
+
+class LoginTask:
+    def __init__(self, username, password):
+        self.username = username
+        self.password = password
+
+    def perform_as(self, actor):
+        # Исполнение конкретной атомарной задачи
+        print(f"Актер {actor.name} выполняет вход как {self.username}")
+
+# Наглядный тест в стиле Screenplay:
+alex = Actor("Алекс (Администратор)")
+alex.attempts_to(LoginTask("admin@qa.com", "P@ssword123"))</code></pre>
+    </div>
+  </div>
+</div>
+
+<div id="pattern-table" class="article-section">
+  <h2>Сравнительная сводная таблица паттернов</h2>
+  <div class="table-responsive">
+    <table class="comparison-table">
+      <thead>
+        <tr>
+          <th>Паттерн</th>
+          <th>Категория</th>
+          <th>Применение в автотестах</th>
+          <th>Когда применять</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Singleton</strong></td>
+          <td>Порождающий</td>
+          <td>Глобальный Config Manager, подключения к БД, логгеры</td>
+          <td>Единые настройки стенда на весь прогон</td>
+        </tr>
+        <tr>
+          <td><strong>Test Data Builder</strong></td>
+          <td>Порождающий</td>
+          <td>Генерация валидных сложных тестовых объектов (User, Order)</td>
+          <td>Когда в тестах нужно много вариаций данных</td>
+        </tr>
+        <tr>
+          <td><strong>Facade</strong></td>
+          <td>Структурный</td>
+          <td>Быстрый сетап предусловий (API + БД + Почта) в 1 шаг</td>
+          <td>Для подготовки состояния перед UI тестами</td>
+        </tr>
+        <tr>
+          <td><strong>Factory Method</strong></td>
+          <td>Порождающий</td>
+          <td>Динамический запуск Chrome/Firefox/WebKit по флагу CI</td>
+          <td>Для кроссбраузерного прогона в PyTest</td>
+        </tr>
+        <tr>
+          <td><strong>Page Object Model</strong></td>
+          <td>UI / Архитектура</td>
+          <td>Изоляция селекторов и верстки страниц от проверок в тестах</td>
+          <td>Базовый паттерн для любого E2E проекта</td>
+        </tr>
+        <tr>
+          <td><strong>Page Element</strong></td>
+          <td>UI / Структурный</td>
+          <td>Моделирование повторяющихся виджетов (Header, Modal, Table)</td>
+          <td>Чтобы исключить раздувание классов страниц</td>
+        </tr>
+        <tr>
+          <td><strong>Fluent Interface</strong></td>
+          <td>Поведенческий</td>
+          <td>Цепочечный DSL вызовов шагов (`page.step1().step2()`)</td>
+          <td>Для улучшения читаемости сценариев</td>
+        </tr>
+        <tr>
+          <td><strong>Screenplay Pattern</strong></td>
+          <td>UI / Поведенческий</td>
+          <td>Моделирование ролей Актеров, Задач и Проверок по SOLID</td>
+          <td>В крупных enterprise-проектах с сотнями тестов</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div id="pattern-summary" class="article-section">
+  <h2>Итоговые рекомендации архитектора QA</h2>
+  <div class="article-lead" style="border-left-color: var(--accent-cyan); background: rgba(6, 182, 212, 0.08);">
+    1. Не пытайтесь внедрить все 10 паттернов одновременно в первый же день.<br/>
+    2. Начните с связки <strong>Page Object + Page Element</strong> для UI и <strong>Test Data Builder</strong> для тестовых данных.<br/>
+    3. Используйте <strong>Facade</strong> при росте интеграций между сервисами и <strong>Fluent Interface</strong> для улучшения читаемости.
+  </div>
+</div>

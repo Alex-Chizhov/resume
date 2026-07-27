@@ -1,0 +1,10 @@
+{
+  "id": 6,
+  "slug": "k6-performance-testing-guide",
+  "title": "Нагрузочное тестирование с K6: От простых скриптов к distributed-нагрузке",
+  "image": "https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=800&q=80",
+  "category": "Performance",
+  "date": "14 июля 2026",
+  "readTime": "8 мин",
+  "excerpt": "Как писать сценарии нагрузки на JavaScript в K6, измерять p95 latency и интегрировать пороги (thresholds) в GitHub Actions."
+}

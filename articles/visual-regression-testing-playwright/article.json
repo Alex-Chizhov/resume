@@ -1,0 +1,10 @@
+{
+  "id": 9,
+  "slug": "visual-regression-testing-playwright",
+  "title": "Визуальное регрессионное тестирование: Pixelmatch и Playwright Screenshots",
+  "image": "https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?auto=format&fit=crop&w=800&q=80",
+  "category": "Автоматизация",
+  "date": "05 июля 2026",
+  "readTime": "5 мин",
+  "excerpt": "Настройка сборок эталонных скриншотов, порог чувствительности (threshold) и решение проблем со сглаживанием шрифтов на разных ОС."
+}

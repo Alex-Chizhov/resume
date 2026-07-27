@@ -1,0 +1,10 @@
+{
+  "id": 3,
+  "slug": "pytest-fixtures-best-practices",
+  "title": "Фикстуры в PyTest: От новичка до профессионала",
+  "image": "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=800&q=80",
+  "category": "Python",
+  "date": "22 июля 2026",
+  "readTime": "7 мин",
+  "excerpt": "Научитесь эффективно использовать скоупы фикстур, параметризацию и yield-генераторы для очистки тестовых данных в Python."
+}

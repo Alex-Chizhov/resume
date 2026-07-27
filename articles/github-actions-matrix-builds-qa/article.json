@@ -1,0 +1,10 @@
+{
+  "id": 10,
+  "slug": "github-actions-matrix-builds-qa",
+  "title": "Ускоряем прогон тестов в 5 раз с помощью Matrix в GitHub Actions",
+  "image": "https://images.unsplash.com/photo-1618401471353-b98afee0b2eb?auto=format&fit=crop&w=800&q=80",
+  "category": "CI/CD",
+  "date": "02 июля 2026",
+  "readTime": "7 мин",
+  "excerpt": "Параллелизация тестовых наборов, шардирование Playwright тестов и эффективное кэширование зависимостей Node.js/Python."
+}
