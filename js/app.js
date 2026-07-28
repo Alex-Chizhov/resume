@@ -159,6 +159,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     articleDetailView.classList.add('active');
     window.scrollTo({ top: 0, behavior: 'smooth' });
     window.location.hash = `/article/${slug}`;
+    trackPageView();
 
     try {
       // Fetch article content HTML from its specific folder
@@ -213,12 +214,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
+  // Helper: track SPA page views in Yandex Metrika
+  function trackPageView() {
+    if (typeof window.ym === 'function') {
+      window.ym(111110814, 'hit', window.location.href);
+    }
+  }
+
   // Show main feed view
   function showFeed() {
     articleDetailView.classList.remove('active');
     mainFeedView.style.display = 'block';
     window.location.hash = '';
     window.scrollTo({ top: 0, behavior: 'smooth' });
+    trackPageView();
   }
 
   // Event Listeners
