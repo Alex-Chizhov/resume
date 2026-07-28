@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const LOAD_MORE_STEP = 5;
   let visibleArticlesCount = INITIAL_PAGE_SIZE;
   let currentCategory = 'all';
+  let searchQuery = '';
   let articlesData = [];
 
   // DOM Elements
@@ -23,6 +24,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   const articleDetailContent = document.getElementById('articleDetailContent');
   const btnBack = document.getElementById('btnBackToFeed');
   const brandLogo = document.getElementById('brandLogo');
+
+  const searchInput = document.getElementById('searchInput');
+  const searchClearBtn = document.getElementById('searchClearBtn');
 
   // Load articles index from articles/index.json
   async function loadArticlesIndex() {
@@ -60,7 +64,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   function renderArticlesFeed() {
     let filtered = articlesData;
     if (currentCategory !== 'all') {
-      filtered = articlesData.filter(art => art.category === currentCategory);
+      filtered = filtered.filter(art => art.category === currentCategory);
+    }
+    if (searchQuery.trim() !== '') {
+      const q = searchQuery.toLowerCase().trim();
+      filtered = filtered.filter(art => {
+        const titleMatch = art.title && art.title.toLowerCase().includes(q);
+        const excerptMatch = art.excerpt && art.excerpt.toLowerCase().includes(q);
+        const categoryMatch = art.category && art.category.toLowerCase().includes(q);
+        const tagsMatch = Array.isArray(art.tags) && art.tags.some(t => t.toLowerCase().includes(q));
+        return titleMatch || excerptMatch || categoryMatch || tagsMatch;
+      });
     }
 
     const totalCount = filtered.length;
@@ -69,10 +83,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (articlesToDisplay.length === 0) {
       articlesFeedElement.innerHTML = `
         <div class="no-articles" style="padding: 40px; text-align: center; color: var(--text-muted);">
-          <p>Статьи в данной категории не найдены.</p>
+          <p>${searchQuery ? 'По вашему запросу ничего не найдено.' : 'Статьи в данной категории не найдены.'}</p>
         </div>
       `;
-      feedCounterElement.textContent = `0 из ${totalCount} статей`;
+      if (feedCounterElement) {
+        feedCounterElement.textContent = `0 из ${totalCount} статей`;
+      }
       loadMoreContainer.style.display = 'none';
       return;
     }
@@ -105,7 +121,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     }).join('');
 
     // Update counter text
-    feedCounterElement.textContent = `Показано ${articlesToDisplay.length} из ${totalCount} статей`;
+    if (feedCounterElement) {
+      feedCounterElement.textContent = `Показано ${articlesToDisplay.length} из ${totalCount} статей`;
+    }
 
     // Handle "Load More" button visibility
     if (visibleArticlesCount < totalCount) {
@@ -214,8 +232,29 @@ document.addEventListener('DOMContentLoaded', async () => {
     showFeed();
   });
 
+  // Reset search, categories, and pagination to default home state
+  function resetAllFilters() {
+    searchQuery = '';
+    if (searchInput) searchInput.value = '';
+    if (searchClearBtn) searchClearBtn.style.display = 'none';
+    currentCategory = 'all';
+
+    const tagItems = document.querySelectorAll('.tag-item');
+    tagItems.forEach(t => {
+      if (t.getAttribute('data-category') === 'all') {
+        t.classList.add('active');
+      } else {
+        t.classList.remove('active');
+      }
+    });
+
+    visibleArticlesCount = INITIAL_PAGE_SIZE;
+    renderArticlesFeed();
+  }
+
   brandLogo.addEventListener('click', (e) => {
     e.preventDefault();
+    resetAllFilters();
     showFeed();
   });
 
@@ -241,8 +280,50 @@ document.addEventListener('DOMContentLoaded', async () => {
       tag.classList.add('active');
       currentCategory = tag.getAttribute('data-category');
       visibleArticlesCount = INITIAL_PAGE_SIZE;
-      renderArticlesFeed();
+      if (articleDetailView.classList.contains('active')) {
+        showFeed();
+      } else {
+        renderArticlesFeed();
+      }
     });
+  });
+
+  // Search input & clear button listeners
+  if (searchInput) {
+    searchInput.addEventListener('input', (e) => {
+      searchQuery = e.target.value;
+      if (searchClearBtn) {
+        searchClearBtn.style.display = searchQuery ? 'block' : 'none';
+      }
+      visibleArticlesCount = INITIAL_PAGE_SIZE;
+      if (articleDetailView.classList.contains('active')) {
+        showFeed();
+      } else {
+        renderArticlesFeed();
+      }
+    });
+  }
+
+  if (searchClearBtn) {
+    searchClearBtn.addEventListener('click', () => {
+      if (searchInput) searchInput.value = '';
+      searchQuery = '';
+      searchClearBtn.style.display = 'none';
+      visibleArticlesCount = INITIAL_PAGE_SIZE;
+      if (articleDetailView.classList.contains('active')) {
+        showFeed();
+      } else {
+        renderArticlesFeed();
+      }
+    });
+  }
+
+  // Keyboard shortcut (Ctrl+K or Cmd+K) to focus search
+  document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+      e.preventDefault();
+      if (searchInput) searchInput.focus();
+    }
   });
 
   // Start by loading the articles index
