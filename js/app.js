@@ -51,10 +51,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!text) return '';
     const cleanText = text.replace(/<[^>]*>?/gm, '').trim();
     if (cleanText.length <= maxLength) return cleanText;
-    
+
     let truncated = cleanText.substring(0, maxLength);
     const lastSpace = truncated.lastIndexOf(' ');
-    if (lastSpace > 70) {
+    if (lastSpace > (maxLength - 25)) {
       truncated = truncated.substring(0, lastSpace);
     }
     return truncated + '...';
