@@ -16,29 +16,36 @@
     </div>
 
     <div class="toc-section-block">
-      <span class="toc-section-label">Часть 2. Области видимости</span>
+      <span class="toc-section-label">Часть 2. Классификация & Scopes</span>
       <ul class="toc-list">
-        <li><a href="#fixture-scopes">3. Все 5 скоупов: от function до session</a></li>
-        <li><a href="#fixture-dynamic-scope">4. Динамический Scope (Callable)</a></li>
+        <li><a href="#fixture-types">3. Виды и классификация фикстур</a></li>
+        <li><a href="#fixture-scopes">4. Все 5 скоупов и Dynamic Scope</a></li>
       </ul>
     </div>
 
     <div class="toc-section-block">
-      <span class="toc-section-label">Часть 3. Продвинутые техники</span>
+      <span class="toc-section-label">Часть 3. Встроенные фикстуры & request</span>
       <ul class="toc-list">
-        <li><a href="#fixture-parametrization">5. Параметризация фикстур</a></li>
-        <li><a href="#fixture-autouse">6. Автоматические фикстуры (autouse)</a></li>
-        <li><a href="#fixture-request">7. Фикстура request и финализаторы</a></li>
-        <li><a href="#fixture-factories">8. Фабрики фикстур (Fixture Factories)</a></li>
+        <li><a href="#fixture-request">5. Встроенная фикстура request (Интроспекция)</a></li>
+        <li><a href="#builtin-fixtures">6. Встроенные фикстуры (tmp_path, monkeypatch...)</a></li>
       </ul>
     </div>
 
     <div class="toc-section-block">
-      <span class="toc-section-label">Часть 4. Архитектура & Практика</span>
+      <span class="toc-section-label">Часть 4. Продвинутые техники</span>
       <ul class="toc-list">
-        <li><a href="#fixture-conftest">9. Иерархия conftest.py & Хуки</a></li>
-        <li><a href="#fixture-real-world">10. Рецепты: UI, API и БД</a></li>
-        <li><a href="#fixture-antipatterns">11. Антипаттерны и Сводная таблица</a></li>
+        <li><a href="#fixture-parametrization">7. Параметризация фикстур (params & ids)</a></li>
+        <li><a href="#fixture-autouse">8. Автоматические фикстуры (autouse)</a></li>
+        <li><a href="#fixture-factories">9. Фабрики фикстур (Fixture Factories)</a></li>
+      </ul>
+    </div>
+
+    <div class="toc-section-block">
+      <span class="toc-section-label">Часть 5. Архитектура & Практика</span>
+      <ul class="toc-list">
+        <li><a href="#fixture-conftest">10. Иерархия conftest.py & Хуки</a></li>
+        <li><a href="#fixture-real-world">11. Рецепты: UI, API и БД</a></li>
+        <li><a href="#fixture-antipatterns">12. Антипаттерны и Сводная таблица</a></li>
       </ul>
     </div>
 
@@ -132,7 +139,89 @@ def test_read_temp_file(temp_file):
 
 <!-- SECTION 2 -->
 <div class="article-section">
-  <h2 id="fixture-scopes">Часть 2. Области видимости (Scopes) и управление жизненным циклом</h2>
+  <h2 id="fixture-types">Часть 2. Классификация и виды фикстур в PyTest</h2>
+  <p>Фикстуры в PyTest — это универсальный гибридный инструмент. Чтобы правильно проектировать тестовую архитектуру, необходимо понимать, какие бывают виды фикстур и по каким осям они классифицируются.</p>
+
+  <p>В PyTest фикстуры делятся по <strong>5 ключевым осям классификации</strong>:</p>
+
+  <div class="table-responsive">
+    <table class="comparison-table">
+      <thead>
+        <tr>
+          <th>Ось классификации</th>
+          <th>Виды фикстур</th>
+          <th>Описание и пример назначения</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>1. По происхождению (Origin)</strong></td>
+          <td>
+            • <strong>Пользовательские (Custom)</strong><br/>
+            • <strong>Встроенные (Built-in)</strong><br/>
+            • <strong>Плагинные (Plugin)</strong>
+          </td>
+          <td>
+            • Написаны в вашем проекте в <code>conftest.py</code> или файле теста.<br/>
+            • Предоставляются самом фреймворком PyTest (<code>request</code>, <code>tmp_path</code>, <code>monkeypatch</code>...).<br/>
+            • Поставляются из сторонних PyPI-библиотек (<code>playwright</code>, <code>mocker</code> из pytest-mock).
+          </td>
+        </tr>
+        <tr>
+          <td><strong>2. По способу подключения (Usage Mode)</strong></td>
+          <td>
+            • <strong>Явные (Explicit)</strong><br/>
+            • <strong>Автоматические (Autouse)</strong><br/>
+            • <strong>Маркированные (usefixtures)</strong>
+          </td>
+          <td>
+            • Передаются явно аргументом в сигнатуру тестовой функции.<br/>
+            • Активируются автоматически (<code>autouse=True</code>) для всех тестов.<br/>
+            • Подключаются декоратором <code>@pytest.mark.usefixtures("name")</code> без возврата объекта.
+          </td>
+        </tr>
+        <tr>
+          <td><strong>3. По возврату и Teardown (Lifecycle)</strong></td>
+          <td>
+            • <strong>Значение (Return)</strong><br/>
+            • <strong>Генераторные (Yield)</strong><br/>
+            • <strong>С финализаторами</strong><br/>
+            • <strong>Фабрики (Fixture Factory)</strong>
+          </td>
+          <td>
+            • Возвращают простой объект без очистки.<br/>
+            • Разделяют Setup (до <code>yield</code>) и Teardown (после <code>yield</code>).<br/>
+            • Регистрируют функции отложенной очистки через <code>request.addfinalizer()</code>.<br/>
+            • Возвращают функцию-фабрику для динамической генерации данных в тесте.
+          </td>
+        </tr>
+        <tr>
+          <td><strong>4. По области видимости (Scope)</strong></td>
+          <td>
+            • <strong>function / class / module / package / session</strong><br/>
+            • <strong>Dynamic Scope</strong>
+          </td>
+          <td>
+            • Определяют жизненный цикл от перезапуска перед каждым тестом до 1 раза на весь прогон.<br/>
+            • Область видимости вычисляется на лету на основе флагов CLI.
+          </td>
+        </tr>
+        <tr>
+          <td><strong>5. По параметризации (Parametrization)</strong></td>
+          <td>
+            • <strong>Статичные (Static)</strong><br/>
+            • <strong>Параметризованные</strong>
+          </td>
+          <td>
+            • Возвращают один фиксированный результат.<br/>
+            • Принимают список <code>params=[...]</code> и выполняют тесты с несколькими наборами данных.
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 id="fixture-scopes">Области видимости (Scopes) и управление жизненным циклом</h3>
   <p>Область видимости (Scope) определяет, как часто PyTest будет создавать и уничтожать экземпляр фикстуры. Правильный выбор скоупа позволяет экономить время прогона тестов в десятки раз за счет повторного использования «тяжелых» ресурсов.</p>
 
   <p>В PyTest доступно <strong>5 областей видимости</strong>:</p>
@@ -250,7 +339,253 @@ def database(request):
 
 <!-- SECTION 3 -->
 <div class="article-section">
-  <h2 id="fixture-parametrization">Часть 3. Продвинутые возможности и суперспособности</h2>
+  <h2 id="fixture-request">Часть 3. Встроенная фикстура `request` и экосистема встроенных фикстур</h2>
+  <p>Особую группу в PyTest составляют <strong>Встроенные фикстуры (Built-in Fixtures)</strong>. Это готовые системные фикстуры, которые PyTest предоставляет «из коробки» без необходимости их импорта или объявления.</p>
+
+  <h3>Что такое встроенная фикстура `request`?</h3>
+  <p>Фикстура <code>request</code> — это объект класса <code>pytest.FixtureRequest</code>, который предоставляет мощнейший механизм <strong>интроспекции (Introspection)</strong>. Она служит «окном во внутренний мир PyTest», позволяя фикстуре получать полные сведения о вызывающем тесте, об окружении, о текущей конфигурации PyTest и о запрашиваемых параметрах.</p>
+
+  <div style="background: rgba(99, 102, 241, 0.1); border-left: 4px solid var(--accent-primary); padding: 14px 18px; border-radius: 0 8px 8px 0; margin: 16px 0; font-size: 14px; line-height: 1.6;">
+    <strong style="color: var(--accent-primary); font-size: 15px;">🧠 Ключевой смысл фикстуры `request`:</strong><br/>
+    Без <code>request</code> фикстура выполняет подготовку ресурса вслепую. С фикстурой <code>request</code> ваша фикстура получает полное видение текущего контекста: имя теста, его маркеры, путь к файлу, CLI параметры командной строки, а также умеет регистрировать безопасные цепочки очистки ресурса.
+  </div>
+
+  <h4>Главные свойства и методы фикстуры `request`:</h4>
+
+  <div class="table-responsive">
+    <table class="comparison-table">
+      <thead>
+        <tr>
+          <th>Свойство / Метод</th>
+          <th>Возвращаемый тип</th>
+          <th>Что делает и зачем нужен</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>request.param</code></td>
+          <td><code>Any</code></td>
+          <td>Извлекает текущее значение при параметризации фикстуры (<code>@pytest.fixture(params=[...])</code>).</td>
+        </tr>
+        <tr>
+          <td><code>request.node</code></td>
+          <td><code>pytest.Item</code></td>
+          <td>Объект узла теста в AST-дереве PyTest. Позволяет узнать имя теста (<code>node.name</code>), маркеры, пути и статус.</td>
+        </tr>
+        <tr>
+          <td><code>request.addfinalizer(fn)</code></td>
+          <td><code>None</code></td>
+          <td>Регистрирует функцию очистки (Teardown). Гарантированно вызывается по принципу LIFO (Last In, First Out).</td>
+        </tr>
+        <tr>
+          <td><code>request.scope</code></td>
+          <td><code>str</code></td>
+          <td>Возвращает строковое имя текущего скоупа фикстуры (<code>"function"</code>, <code>"module"</code>, <code>"session"</code>).</td>
+        </tr>
+        <tr>
+          <td><code>request.config</code></td>
+          <td><code>pytest.Config</code></td>
+          <td>Доступ к объекту конфигурации PyTest. Позволяет читать флаги командной строки (<code>config.getoption()</code>).</td>
+        </tr>
+        <tr>
+          <td><code>request.cls</code></td>
+          <td><code>type | None</code></td>
+          <td>Класс теста, если тест объявлен внутри <code>class TestX</code>. Позволяет инжектировать свойства в <code>self</code>.</td>
+        </tr>
+        <tr>
+          <td><code>request.module</code></td>
+          <td><code>module</code></td>
+          <td>Python-модуль (файл), в котором расположен текущий исполняемый тест.</td>
+        </tr>
+        <tr>
+          <td><code>request.keywords</code></td>
+          <td><code>dict</code></td>
+          <td>Словарь всех ключевых слов и меток (markers), привязанных к тесту.</td>
+        </tr>
+        <tr>
+          <td><code>request.fixturename</code></td>
+          <td><code>str</code></td>
+          <td>Имя текущей исполняемой фикстуры.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h4>Практические примеры использования `request`</h4>
+
+  <h5>1. Чтение кастомных маркеров теста (`request.node.get_closest_marker`)</h5>
+  <p>Фикстура может динамически адаптироваться под декораторы-маркеры, повешенные на конкретный тест.</p>
+
+  <div class="code-window">
+    <div class="code-window-header">
+      <div class="window-dots">
+        <span class="dot dot-red"></span>
+        <span class="dot dot-yellow"></span>
+        <span class="dot dot-green"></span>
+      </div>
+      <span class="window-filename">test_request_markers.py</span>
+    </div>
+    <pre><code class="language-python">import pytest
+
+@pytest.fixture
+def user_session(request):
+    # Ищем маркер @pytest.mark.role("...") на текущем тесте
+    marker = request.node.get_closest_marker("role")
+    role_name = marker.args[0] if marker else "guest"
+
+    print(f"\n[SETUP] Создание сессии для роли: {role_name}")
+    yield {"user": "Alex", "role": role_name}
+    print(f"\n[TEARDOWN] Закрытие сессии {role_name}")
+
+@pytest.mark.role("admin")
+def test_admin_dashboard(user_session):
+    # Фикстура автоматически создаст админскую сессию
+    assert user_session["role"] == "admin"
+
+def test_guest_landing(user_session):
+    # Маркер не указан -> роль по умолчанию 'guest'
+    assert user_session["role"] == "guest"</code></pre>
+  </div>
+
+  <h5>2. Безопасная очистка нескольких ресурсов (`request.addfinalizer`)</h5>
+  <p>Преимущество <code>addfinalizer</code> перед <code>yield</code> в том, что финализаторы регистрируются пошагово по мере инициализации каждого ресурса. Если второй шаг упадет с исключением, финализатор первого ресурса всё равно выполнится!</p>
+
+  <div class="code-window">
+    <div class="code-window-header">
+      <div class="window-dots">
+        <span class="dot dot-red"></span>
+        <span class="dot dot-yellow"></span>
+        <span class="dot dot-green"></span>
+      </div>
+      <span class="window-filename">test_request_finalizers_safe.py</span>
+    </div>
+    <pre><code class="language-python">import pytest
+
+@pytest.fixture
+def complex_environment(request):
+    print("\n[STEP 1] Создание базы данных...")
+    db = {"db_name": "temp_db"}
+    request.addfinalizer(lambda: print("-> [CLEANUP] Удаление базы данных"))
+
+    print("[STEP 2] Поднятие Redis-кэша...")
+    redis = {"host": "localhost"}
+    request.addfinalizer(lambda: print("-> [CLEANUP] Очистка Redis-кэша"))
+
+    return {"db": db, "redis": redis}</code></pre>
+  </div>
+
+  <h5>3. Внедрение атрибутов в класс теста (`request.cls`)</h5>
+  <p>Если тесты организованы в стиле классов, фикстура может автоматически инжектировать подготавливаемые объекты прямо в <code>self</code> инстанса класса.</p>
+
+  <div class="code-window">
+    <div class="code-window-header">
+      <div class="window-dots">
+        <span class="dot dot-red"></span>
+        <span class="dot dot-yellow"></span>
+        <span class="dot dot-green"></span>
+      </div>
+      <span class="window-filename">test_class_injection.py</span>
+    </div>
+    <pre><code class="language-python">import pytest
+
+@pytest.fixture(scope="class")
+def setup_api_class(request):
+    # Привязываем экземпляр API-клиента к классу теста
+    if request.cls is not None:
+        request.cls.api_url = "https://api.qalify.ru"
+        request.cls.timeout = 30
+
+@pytest.mark.usefixtures("setup_api_class")
+class TestPayments:
+    def test_checkout(self):
+        # Доступ к свойствам напрямую через self
+        assert self.api_url == "https://api.qalify.ru"
+        assert self.timeout == 30</code></pre>
+  </div>
+
+  <h3 id="builtin-fixtures">Другие важнейшие встроенные фикстуры PyTest</h3>
+  <p>Помимо <code>request</code>, PyTest поставляется с набором мощных встроенных фикстур для решения повседневных QA-задач:</p>
+
+  <div class="table-responsive">
+    <table class="comparison-table">
+      <thead>
+        <tr>
+          <th>Встроенная фикстура</th>
+          <th>Возвращаемый объект</th>
+          <th>Назначение и практический кейс</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>tmp_path</code> / <code>tmp_path_factory</code></td>
+          <td><code>pathlib.Path</code></td>
+          <td>Создает уникальную временную директорию для теста. Автоматически удаляется после нескольких прогонов.</td>
+        </tr>
+        <tr>
+          <td><code>monkeypatch</code></td>
+          <td><code>MonkeyPatch</code></td>
+          <td>Безопасно патчит атрибуты объектов, методы, словари и переменные <code>os.environ</code> с авто-откатом после теста.</td>
+        </tr>
+        <tr>
+          <td><code>capsys</code> / <code>caplog</code></td>
+          <td><code>CaptureFixture</code> / <code>LogCaptureFixture</code></td>
+          <td>Перехватывает стандартный вывод (<code>stdout/stderr</code>) или сообщения Python-логгера <code>logging</code>.</td>
+        </tr>
+        <tr>
+          <td><code>pytestconfig</code></td>
+          <td><code>pytest.Config</code></td>
+          <td>Быстрый доступ к объекту конфигурации и флагам командной строки (алиас для <code>request.config</code>).</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="code-window">
+    <div class="code-window-header">
+      <div class="window-dots">
+        <span class="dot dot-red"></span>
+        <span class="dot dot-yellow"></span>
+        <span class="dot dot-green"></span>
+      </div>
+      <span class="window-filename">test_builtin_fixtures_examples.py</span>
+    </div>
+    <pre><code class="language-python">import os
+import logging
+import pytest
+
+# 1. Пример tmp_path и monkeypatch
+def test_env_and_files(tmp_path, monkeypatch):
+    # Устанавливаем фейковую переменную окружения
+    monkeypatch.setenv("APP_ENV", "testing")
+    assert os.getenv("APP_ENV") == "testing"
+
+    # Создаем файл во временной папочке tmp_path (объект pathlib.Path)
+    config_file = tmp_path / "config.json"
+    config_file.write_text('{"debug": true}', encoding="utf-8")
+
+    assert config_file.exists()
+    assert "debug" in config_file.read_text()
+
+# 2. Пример capsys и caplog
+def test_logging_capture(capsys, caplog):
+    print("Hello from stdout!")
+    
+    # Проверяем stdout
+    captured = capsys.readouterr()
+    assert "Hello from stdout!" in captured.out
+
+    # Проверяем логирование
+    logger = logging.getLogger("qalify")
+    with caplog.at_level(logging.INFO):
+        logger.info("Пользователь зарегистрирован")
+    
+    assert "Пользователь зарегистрирован" in caplog.text</code></pre>
+  </div>
+</div>
+
+<!-- SECTION 4 -->
+<div class="article-section">
+  <h2 id="fixture-parametrization">Часть 4. Продвинутые техники: Параметризация, Autouse и Фабрики</h2>
 
   <h3>1. Параметризация фикстур (`params` & `ids`)</h3>
   <p>Параметризация фикстур — это один из самых мощных механизмов PyTest, позволяющий мультиплицировать прогон автотестов без дублирования кода. Передавая параметр <code>params</code> в декоратор <code>@pytest.fixture</code>, вы заставляете PyTest запустить <strong>все тесты, использующие эту фикстуру, столько раз, сколько элементов содержится в списке <code>params</code></strong>.</p>
@@ -369,40 +704,7 @@ def print_test_timer(request):
     print(f"\n⏱️ Тест '{request.node.name}' выполнен за {duration:.4f} сек")</code></pre>
   </div>
 
-  <h3 id="fixture-request">3. Встроенная фикстура `request` и finalizers</h3>
-  <p>Встроенная фикстура <code>request</code> предоставляет интроспекцию — полную информацию о текущем исполняемом тесте, включая имя функции, класс, маркировки (markers), параметры и директории.</p>
-
-  <p>Кроме <code>yield</code>, очистку ресурсов можно зарегистрировать через метод <code>request.addfinalizer()</code>. Преимущество финализаторов в том, что можно добавить <strong>несколько независимых шагов очистки</strong>, и все они гарантированно выполнятся по принципу LIFO (Last In, First Out).</p>
-
-  <div class="code-window">
-    <div class="code-window-header">
-      <div class="window-dots">
-        <span class="dot dot-red"></span>
-        <span class="dot dot-yellow"></span>
-        <span class="dot dot-green"></span>
-      </div>
-      <span class="window-filename">test_request_finalizer.py</span>
-    </div>
-    <pre><code class="language-python">import pytest
-
-@pytest.fixture
-def managed_resource(request):
-    print(f"\nЗапуск подготавливающей фикстуры для теста: {request.node.name}")
-
-    def cleanup_a():
-        print("-> [Finalizer A] Очистка первой подсистемы")
-
-    def cleanup_b():
-        print("-> [Finalizer B] Очистка второй подсистемы")
-
-    # Регистрируем финализаторы
-    request.addfinalizer(cleanup_a)
-    request.addfinalizer(cleanup_b)
-
-    return "resource_payload"</code></pre>
-  </div>
-
-  <h3 id="fixture-factories">4. Фабрики фикстур (Fixture Factories)</h3>
+  <h3 id="fixture-factories">3. Фабрики фикстур (Fixture Factories)</h3>
   <p>Стандартная фикстура передает готовый статичный объект. Но что делать, если автотесту требуется создать 3 разных пользователя с уникальными параметрами (например, одного админа, одного заблокированного юзера и одного гостя)?</p>
 
   <p>Для этого применяется паттерн <strong>Fixture Factory</strong>: фикстура возвращает не значение, а <em>внутреннюю функцию-фабрику</em>.</p>
@@ -449,9 +751,9 @@ def test_multiple_users_creation(user_factory):
   </div>
 </div>
 
-<!-- SECTION 4 -->
+<!-- SECTION 5 -->
 <div class="article-section">
-  <h2 id="fixture-conftest">Часть 4. Архитектура conftest.py, Переопределение и Хуки</h2>
+  <h2 id="fixture-conftest">Часть 5. Архитектура conftest.py, Переопределение и Хуки</h2>
   <p>Файл <code>conftest.py</code> — это специальный модуль PyTest для хранения глобальных фикстур и плагинов. Важная особенность: фикстуры из <code>conftest.py</code> <strong>доступны всем тестам в текущей и дочерних директориях без явного импорта</strong>.</p>
 
   <div class="code-window">
@@ -511,9 +813,9 @@ def page_with_screenshot(page, request):
   </div>
 </div>
 
-<!-- SECTION 5 -->
+<!-- SECTION 6 -->
 <div class="article-section">
-  <h2 id="fixture-real-world">Часть 5. Реальные рецепты из Real-World QA</h2>
+  <h2 id="fixture-real-world">Часть 6. Реальные рецепты из Real-World QA</h2>
 
   <h3>1. UI Тестирование: Playwright / Selenium менеджмент</h3>
   <p>В UI-автоматизации критически важно правильно разделить скоупы: браузер запускается один раз на сессию (дорогой шаг), а контексты и страницы изолируются для каждого теста.</p>

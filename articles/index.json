@@ -28,8 +28,8 @@
     "image": "assets/images/pytest-fixtures-cover.png",
     "category": "Python",
     "date": "29 июля 2026",
-    "readTime": "16 мин",
-    "excerpt": "Полное руководство по фикстурам в PyTest: внедрение зависимостей, все 5 скоупов, yield-очистка, параметризация, фабрики, conftest.py и реальные паттерны для UI, API и БД.",
+    "readTime": "20 мин",
+    "excerpt": "Полное руководство по фикстурам в PyTest: классификация видов фикстур, интроспекция с request, все 5 скоупов, yield-очистка, параметризация, фабрики, conftest.py и реальные паттерны для UI, API и БД.",
     "path": "articles/pytest-fixtures-best-practices"
   },
   {
