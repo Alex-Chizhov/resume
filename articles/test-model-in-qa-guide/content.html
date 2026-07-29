@@ -1,0 +1,542 @@
+<div class="article-lead">
+  <strong>Тестовая модель (Test Model)</strong> — это формальное или визуальное представление тестируемой системы (SUT), её состояний, бизнес-правил, входных данных и потоков управления, созданное специально для проектирования, оценки и автоматизации тестирования. В условиях усложнения современных микросервисных архитектур интуитивное тестирование по случайным чек-листам неизбежно приводит к "слепым зонам" и критическим пропускам багов в продакшен. В этом исчерпывающем руководстве мы подробно разберем, что такое тестовая модель, какие типы моделей существуют (от конечных автоматов до MBT), как построить тестовую модель с нуля и применить её в реальных автотестах на Python.
+</div>
+
+<!-- Table of Contents (TOC) with Anchors -->
+<div class="toc-container">
+  <div class="toc-title">📑 Оглавление статьи</div>
+  <div class="toc-grid">
+    
+    <div class="toc-section-block">
+      <span class="toc-section-label">Часть 1. Концепция & SEO-Фундамент</span>
+      <ul class="toc-list">
+        <li><a href="#test-model-definition">1. Что такое тестовая модель в QA</a></li>
+        <li><a href="#why-test-models-matter">2. Зачем нужна тестовая модель и её роль в STLC</a></li>
+      </ul>
+    </div>
+
+    <div class="toc-section-block">
+      <span class="toc-section-label">Часть 2. Типы тестовых моделей</span>
+      <ul class="toc-list">
+        <li><a href="#test-model-types">3. Классификация: FSM, Decision Tables, Data Flow</a></li>
+        <li><a href="#model-based-testing-mbt">4. Model-Based Testing (MBT) и генерация тестов</a></li>
+      </ul>
+    </div>
+
+    <div class="toc-section-block">
+      <span class="toc-section-label">Часть 3. Пошаговый алгоритм</span>
+      <ul class="toc-list">
+        <li><a href="#test-model-steps">5. 6 шагов построения тестовой модели</a></li>
+        <li><a href="#test-coverage-criteria">6. Критерии покрытия модели (State/Transition)</a></li>
+      </ul>
+    </div>
+
+    <div class="toc-section-block">
+      <span class="toc-section-label">Часть 4. Практика на Python</span>
+      <ul class="toc-list">
+        <li><a href="#example-state-machine">7. Пример 1: State Machine заказа (E-commerce)</a></li>
+        <li><a href="#example-decision-table">8. Пример 2: Таблица решений скоринга (FinTech)</a></li>
+        <li><a href="#example-hypothesis-mbt">9. Пример 3: MBT с библиотекой Hypothesis</a></li>
+      </ul>
+    </div>
+
+    <div class="toc-section-block">
+      <span class="toc-section-label">Часть 5. Анализ, Метрики & Ошибки</span>
+      <ul class="toc-list">
+        <li><a href="#checklist-vs-model">10. Чек-лист vs Тестовая модель (Таблица)</a></li>
+        <li><a href="#metrics-and-kpi">11. Метрики эффективности и антипаттерны</a></li>
+      </ul>
+    </div>
+
+  </div>
+</div>
+
+<!-- SECTION 1 -->
+<div class="article-section">
+  <h2 id="test-model-definition">Часть 1. Что такое тестовая модель в QA и зачем она нужна</h2>
+  <p>В современной разработке программного обеспечения тестировщики регулярно сталкиваются с проблемой высокой сложности систем. Системы содержат десятки микросервисов, асинхронные очереди сообщений, разветвленные бизнес-правила и множество пользовательских ролей. Попытка удержать все варианты поведения приложения в голове или описать их линейными неструктурированными чек-листами приводит к неизбежным ошибкам.</p>
+
+  <p><strong>Тестовая модель (Test Model)</strong> — это абстрактное, но строго структурированное описание объекта тестирования (System Under Test, SUT), отражающее его ключевые свойства, состояния, переходы, входные воздействия и ожидаемые реакции.</p>
+
+  <div style="background: rgba(99, 102, 241, 0.08); border-left: 4px solid var(--accent-primary); padding: 16px 20px; border-radius: 0 10px 10px 0; margin: 20px 0;">
+    <strong style="color: var(--accent-primary); font-size: 16px;">📌 Определение стандартов ISO/IEC/IEEE 29119 & ISTQB:</strong><br>
+    <em>"Тестовая модель — это формализованное представление поведения или структуры системы, используемое в качестве основы для проектирования тестовых сценариев и автоматического анализа покрытия."</em>
+  </div>
+
+  <p>Главная задача тестовой модели — <strong>абстрагирование от деталей реализации</strong> с сохранением всей критически важной логики. Вместо того чтобы сразу писать сотни автотестов на Playwright или PyTest, QA-инженер сначала создает модель, благодаря которой становится очевидно:</p>
+  <ul>
+    <li>Какие состояния может принимать объект (например, Заказ, Пользователь или Транзакция);</li>
+    <li>Какие триггеры и события переводят систему из одного состояния в другое;</li>
+    <li>Какие комбинации параметров являются валидными, а какие должны блокироваться;</li>
+    <li>Где находятся наиболе рискованные зоны и "слепые пятна" покрытия.</li>
+  </ul>
+
+  <h3 id="why-test-models-matter">Зачем нужна тестовая модель: Смена парадигмы в STLC</h3>
+  <p>При использовании традиционного подхода тестировщик пишет тесты на основе текста требований (Technical Specification / User Story). Однако текстовые требования часто содержат двусмысленности, упущенные альтернативные сценарии (edge cases) и логические противоречия.</p>
+
+  <p>Построение тестовой модели меняет подход к контролю качества:</p>
+
+  <div class="pros-cons-grid">
+    <div class="cons-box">
+      <h3>❌ Без тестовой модели (Интуитивный подход)</h3>
+      <ul>
+        <li>Тесты покрывают только "счастливый путь" (Happy Path).</li>
+        <li>Непонятно реальное процентное покрытие требований (Coverage Gap).</li>
+        <li>Параллельные и редкие комбинации состояний упускаются.</li>
+        <li>При изменении требований приходится вручную перебирать сотни тест-кейсов.</li>
+        <li>Дублирование проверок между разрабчиками и QA.</li>
+      </ul>
+    </div>
+    <div class="pros-box">
+      <h3>Valid ✅ С тестовой моделью (Model-Driven QA)</h3>
+      <ul>
+        <li>100% предсказуемое покрытие состояний и переходов.</li>
+        <li>Нахождение багов в требованиях ЕЩЕ ДО написания кода.</li>
+        <li>Автоматический расчет минимально необходимого числа тестов.</li>
+        <li>Быстрая актуализация: меняем узлы в модели — обновляются тесты.</li>
+        <li>Прозрачный выбор техник тест-дизайна (Pairwise, Boundary Values).</li>
+      </ul>
+    </div>
+  </div>
+
+</div>
+
+<!-- SECTION 2 -->
+<div class="article-section">
+  <h2 id="test-model-types">Часть 2. Классификация и типы тестовых моделей</h2>
+  <p>В зависимости от характера тестируемой системы и целей проверки выбирается одна из классических моделей или их гибрид. Разберем 5 основных типов тестовых моделей, применяемых в IT-индустрии.</p>
+
+  <h3>1. Модель конечных автоматов (Finite State Machine / State Transition Model)</h3>
+  <p>Идеально подходит для систем, поведение которых зависит от предыдущей истории и текущего состояния объекта (заказы в e-commerce, банковские транзакции, тикеты в техподдержке, процессы аутентификации).</p>
+  <p>Модель состоит из:</p>
+  <ul>
+    <li><strong>States (Состояния):</strong> <code>Draft</code>, <code>Pending_Payment</code>, <code>Paid</code>, <code>Processing</code>, <code>Shipped</code>, <code>Cancelled</code>.</li>
+    <li><strong>Transitions (Переходы):</strong> Стрелки, соединяющие состояния.</li>
+    <li><strong>Inputs/Events (События):</strong> <code>pay()</code>, <code>cancel()</code>, <code>refund()</code>, <code>timeout()</code>.</li>
+    <li><strong>Guards/Conditions (Условия):</strong> Например, "Баланс пользователя >= Сумма заказа".</li>
+  </ul>
+
+  <h3>2. Таблицы решений (Decision Tables)</h3>
+  <p>Применяется для систем с богатой бизнес-логикой, где результат зависит от комбинации множества входных условий, но явных долгоживущих состояний нет (расчет страховой премии, налоговые калькуляторы, кредитный скоринг, матрицы прав доступа RBAC).</p>
+
+  <h3>3. Модели графа потоков данных (Data Flow & Entity-Relationship Models)</h3>
+  <p>Фокусируются на трансформации данных по мере прохождения через сервисы и API. Моделируется жизненный цикл сущности (CRUD) и зависимости между полями базы данных.</p>
+
+  <h3>4. Графы пользовательских сценариев (User Flow / Use Case Diagram)</h3>
+  <p>Описывают пути пользователя (User Journeys) в интерфейсе веб- или мобильного приложения. Позволяют выделить критические воронки конверсии и цепочки навигации.</p>
+
+  <h3 id="model-based-testing-mbt">5. Исполняемые модели и Model-Based Testing (MBT)</h3>
+  <p>Вершина эволюции тестового моделирования. Вместо того чтобы вручную превращать схему в тест-кейсы, QA-инженер описывает модель на формальном языке программирования. Специальный генератор тестов (например, <code>GraphWalker</code>, <code>AltWalker</code> или <code>Hypothesis</code>) автоматически обходит граф состояний и генерирует исполняемый тестовый набор на лету.</p>
+
+  <div style="background: rgba(6, 182, 212, 0.08); border-left: 4px solid var(--accent-cyan); padding: 16px 20px; border-radius: 0 10px 10px 0; margin: 20px 0;">
+    <strong style="color: var(--accent-cyan); font-size: 16px;">💡 Преимущество MBT:</strong><br>
+    Генератор MBT способен найти так называемые "немыслимые" цепочки действий (например, клик "Отмена" во время загрузки файла после смены сети), о которых человек даже не задумался бы при составлении ручного тест-плана.
+  </div>
+</div>
+
+<!-- SECTION 3 -->
+<div class="article-section">
+  <h2 id="test-model-steps">Часть 3. Алгоритм пошагового проектирования тестовой модели</h2>
+  <p>Чтобы построить работающую тестовую модель, не нужно сразу покупать дорогой инструментарий. Достаточно следовать проверенному 6-шаговому алгоритму.</p>
+
+  <div class="toc-container" style="border-color: rgba(16, 185, 129, 0.3); background: rgba(16, 185, 129, 0.03);">
+    <div class="toc-title" style="color: var(--accent-emerald);">🚀 6 Шагов построения тестовой модели:</div>
+    <ol style="padding-left: 20px; color: var(--text-primary); line-height: 1.8;">
+      <li><strong>Шаг 1. Определение границ SUT (Scope & Boundaries):</strong> Четко зафиксируйте, какой модуль моделируется (API заказов, экран авторизации, биллинг), а что выносится за скобки в моки.</li>
+      <li><strong>Шаг 2. Выявление входов, выходов и состояний:</strong> Составьте полный перечень всех возможных состояний объекта и внешних факторов, влияющих на систему.</li>
+      <li><strong>Шаг 3. Формализация матрицы переходов / правил:</strong> Заполните матрицу N×N для всех состояний или сформируйте комбинаторную таблицу условий.</li>
+      <li><strong>Шаг 4. Анализ невалидных транзакций (Negative Testing):</strong> Явно пометьте недопустимые переходы (например, переход из "Отменен" в "Доставлен"). Их проверка — источник самых опасных уязвимостей.</li>
+      <li><strong>Шаг 5. Выбор критерия покрытия (Coverage Criteria):</strong> Определите уровень полноты проверок (Все состояния, Все переходы, Все пары условий).</li>
+      <li><strong>Шаг 6. Трансляция в автотесты:</strong> Переведите узлы и ребра графа модели в методы тестового фреймворка (PyTest, JUnit, Playwright).</li>
+    </ol>
+  </div>
+
+  <h3 id="test-coverage-criteria">Критерии покрытия при работе с тестовой моделью</h3>
+  <p>Как понять, что ваша тестовая модель покрыта тестами достаточно полно?</p>
+  <ul>
+    <li><strong>State Coverage (Покрытие состояний):</strong> Каждый узел графа посещен хотя бы один раз. Минимально необходимый уровень (100% State Coverage).</li>
+    <li><strong>0-Switch Transition Coverage (Покрытие переходов):</strong> Каждая разрешенная стрелка (переход) выполнена хотя бы один раз.</li>
+    <li><strong>1-Switch Coverage (Покрытие пар переходов):</strong> Проверены все последовательные пары переходов (A → B → C). Позволяет ловить ошибки сохранения контекста между шагами.</li>
+    <li><strong>Invalid Transition Coverage:</strong> Протестированы все запрещенные переходы с проверкой корректности вызова ошибок (400 Bad Request / 422 Unprocessable Entity).</li>
+  </ul>
+</div>
+
+<!-- SECTION 4 -->
+<div class="article-section">
+  <h2 id="example-state-machine">Часть 4. Практические примеры и автоматизация на Python</h2>
+  <p>Рассмотрим 3 исчерпывающих практических примера применения тестовых моделей в реальных проектах на Python.</p>
+
+  <h3>Пример 1. Модель конечных автоматов для заказа в E-Commerce</h3>
+  <p>Представим систему управления заказами (Order Management System). Заказ может находиться в одном из 5 состояний:</p>
+  <ul>
+    <li><code>NEW</code> — Заказ создан;</li>
+    <li><code>PAID</code> — Заказ оплачен;</li>
+    <li><code>SHIPPED</code> — Заказ передан в доставку;</li>
+    <li><code>CANCELLED</code> — Заказ отменен;</li>
+    <li><code>REFUNDED</code> — Осуществлен возврат средств.</li>
+  </ul>
+
+  <p>Матрица допустимых переходов:</p>
+
+  <div class="table-responsive">
+    <table class="comparison-table">
+      <thead>
+        <tr>
+          <th>Из / В State</th>
+          <th>NEW</th>
+          <th>PAID</th>
+          <th>SHIPPED</th>
+          <th>CANCELLED</th>
+          <th>REFUNDED</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>NEW</strong></td>
+          <td>❌ Invalid</td>
+          <td>✅ Valid (pay)</td>
+          <td>❌ Invalid</td>
+          <td>✅ Valid (cancel)</td>
+          <td>❌ Invalid</td>
+        </tr>
+        <tr>
+          <td><strong>PAID</strong></td>
+          <td>❌ Invalid</td>
+          <td>❌ Invalid</td>
+          <td>✅ Valid (ship)</td>
+          <td>❌ Invalid</td>
+          <td>✅ Valid (refund)</td>
+        </tr>
+        <tr>
+          <td><strong>SHIPPED</strong></td>
+          <td>❌ Invalid</td>
+          <td>❌ Invalid</td>
+          <td>❌ Invalid</td>
+          <td>❌ Invalid</td>
+          <td>✅ Valid (refund)</td>
+        </tr>
+        <tr>
+          <td><strong>CANCELLED</strong></td>
+          <td>❌ Invalid</td>
+          <td>❌ Invalid</td>
+          <td>❌ Invalid</td>
+          <td>❌ Invalid</td>
+          <td>❌ Invalid</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>Реализуем автоматическое тестирование данной тестовой модели на <strong>Python + PyTest</strong> с использованием паттерна Finite State Machine:</p>
+
+  <div class="code-window">
+    <div class="code-window-header">
+      <div class="window-dots">
+        <span class="dot dot-red"></span>
+        <span class="dot dot-yellow"></span>
+        <span class="dot dot-green"></span>
+      </div>
+      <span class="window-filename">test_order_state_machine.py</span>
+    </div>
+    <pre><code class="language-python">import pytest
+from enum import Enum, auto
+
+class OrderState(Enum):
+    NEW = auto()
+    PAID = auto()
+    SHIPPED = auto()
+    CANCELLED = auto()
+    REFUNDED = auto()
+
+class InvalidStateTransitionError(Exception):
+    """Исключение при попытке выполнения недопустимого перехода в тестовой модели."""
+    pass
+
+class OrderStateMachine:
+    """Реализация бизнес-логики заказа на основе тестовой модели."""
+    
+    # Карта валидных переходов: Current State -> { Allowed Target State: Action Name }
+    VALID_TRANSITIONS = {
+        OrderState.NEW: {OrderState.PAID: "pay", OrderState.CANCELLED: "cancel"},
+        OrderState.PAID: {OrderState.SHIPPED: "ship", OrderState.REFUNDED: "refund"},
+        OrderState.SHIPPED: {OrderState.REFUNDED: "refund"},
+        OrderState.CANCELLED: {},
+        OrderState.REFUNDED: {}
+    }
+
+    def __init__(self, order_id: int):
+        self.order_id = order_id
+        self.state = OrderState.NEW
+
+    def transition_to(self, target_state: OrderState):
+        allowed_targets = self.VALID_TRANSITIONS.get(self.state, {})
+        if target_state not in allowed_targets:
+            raise InvalidStateTransitionError(
+                f"Невозможный переход из состояния {self.state.name} в {target_state.name}"
+            )
+        self.state = target_state
+        return True
+
+# --- АВТОМАТИЗИРОВАННЫЕ ТЕСТЫ ПО ТЕСТОВОЙ МОДЕЛИ ---
+
+@pytest.mark.parametrize("initial_state, target_state", [
+    (OrderState.NEW, OrderState.PAID),
+    (OrderState.NEW, OrderState.CANCELLED),
+    (OrderState.PAID, OrderState.SHIPPED),
+    (OrderState.PAID, OrderState.REFUNDED),
+    (OrderState.SHIPPED, OrderState.REFUNDED),
+])
+def test_valid_state_transitions(initial_state, target_state):
+    """Тест 100% покрытия разрешенных переходов (Valid Transition Coverage)."""
+    order = OrderStateMachine(order_id=101)
+    order.state = initial_state
+    
+    assert order.transition_to(target_state) is True
+    assert order.state == target_state
+
+@pytest.mark.parametrize("initial_state, invalid_target_state", [
+    (OrderState.NEW, OrderState.SHIPPED),
+    (OrderState.NEW, OrderState.REFUNDED),
+    (OrderState.PAID, OrderState.NEW),
+    (OrderState.CANCELLED, OrderState.PAID),
+    (OrderState.REFUNDED, OrderState.SHIPPED),
+])
+def test_invalid_state_transitions_raise_error(initial_state, invalid_target_state):
+    """Тест 100% защиты от невалидных переходов (Invalid Transition Protection)."""
+    order = OrderStateMachine(order_id=102)
+    order.state = initial_state
+    
+    with pytest.raises(InvalidStateTransitionError):
+        order.transition_to(invalid_target_state)</code></pre>
+  </div>
+
+  <h3 id="example-decision-table">Пример 2. Таблица решений для Финтех Скоринга Кредитов</h3>
+  <p>Рассмотрим сервис выдачи кредитов. Решение зависит от 3 факторов:</p>
+  <ol>
+    <li>Возраст клиента ≥ 21 года;</li>
+    <li>Официальный ежемесячный доход ≥ 50,000 руб;</li>
+    <li>Отсутствие просрочек по кредитной истории (Clean Credit History).</li>
+  </ol>
+
+  <p>Построим Таблицу решений (Decision Table):</p>
+
+  <div class="table-responsive">
+    <table class="comparison-table">
+      <thead>
+        <tr>
+          <th>Условие / Правило</th>
+          <th>R1</th>
+          <th>R2</th>
+          <th>R3</th>
+          <th>R4</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1. Возраст ≥ 21</td>
+          <td>Да</td>
+          <td>Да</td>
+          <td>Да</td>
+          <td>Нет</td>
+        </tr>
+        <tr>
+          <td>2. Доход ≥ 50k</td>
+          <td>Да</td>
+          <td>Да</td>
+          <td>Нет</td>
+          <td>- (Любой)</td>
+        </tr>
+        <tr>
+          <td>3. Чистая КИ</td>
+          <td>Да</td>
+          <td>Нет</td>
+          <td>Да</td>
+          <td>- (Любой)</td>
+        </tr>
+        <tr style="background: rgba(99, 102, 241, 0.1); font-weight: bold;">
+          <td><strong>РЕШЕНИЕ (Action)</strong></td>
+          <td><span style="color: var(--accent-emerald);">APPROVED</span></td>
+          <td><span style="color: var(--accent-rose);">REJECTED (Bad Credit)</span></td>
+          <td><span style="color: var(--accent-amber);">MANUAL_REVIEW</span></td>
+          <td><span style="color: var(--accent-rose);">REJECTED (Age Limit)</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>Реализация на PyTest через параметризацию таблицы решений:</p>
+
+  <div class="code-window">
+    <div class="code-window-header">
+      <div class="window-dots">
+        <span class="dot dot-red"></span>
+        <span class="dot dot-yellow"></span>
+        <span class="dot dot-green"></span>
+      </div>
+      <span class="window-filename">test_credit_decision_table.py</span>
+    </div>
+    <pre><code class="language-python">import pytest
+
+def credit_scoring_engine(age: int, income: float, clean_credit_history: bool) -> str:
+    """Бизнес-функция скоринга кредитной заявки."""
+    if age < 21:
+        return "REJECTED_AGE"
+    if not clean_credit_history:
+        return "REJECTED_CREDIT"
+    if income < 50000:
+        return "MANUAL_REVIEW"
+    return "APPROVED"
+
+# Матрица тестов, прямо транслируемая из Таблицы решений (Decision Table)
+DECISION_TABLE_DATA = [
+    # (Age, Income, CreditHistory, ExpectedResult, Rule_ID)
+    (25, 75000, True, "APPROVED", "Rule_1_Approved"),
+    (30, 100000, False, "REJECTED_CREDIT", "Rule_2_BadCredit"),
+    (22, 35000, True, "MANUAL_REVIEW", "Rule_3_LowIncome"),
+    (19, 90000, True, "REJECTED_AGE", "Rule_4_Underage"),
+]
+
+@pytest.mark.parametrize("age, income, clean_history, expected, rule_id", DECISION_TABLE_DATA)
+def test_credit_scoring_rules(age, income, clean_history, expected, rule_id):
+    result = credit_scoring_engine(age, income, clean_history)
+    assert result == expected, f"Ошибка исполнения правила {rule_id}"</code></pre>
+  </div>
+
+  <h3 id="example-hypothesis-mbt">Пример 3. Model-Based Testing с библиотекой Hypothesis</h3>
+  <p>В Python есть библиотека <code>Hypothesis</code>, предоставляющая класс <code>RuleBasedStateMachine</code>. С её помощью тестовая модель становится исполняемым кодом. Библиотека сама генерирует случайные последовательности команд и ищет эдж-кейсы, способные сломать инварианты системы.</p>
+
+  <div class="code-window">
+    <div class="code-window-header">
+      <div class="window-dots">
+        <span class="dot dot-red"></span>
+        <span class="dot dot-yellow"></span>
+        <span class="dot dot-green"></span>
+      </div>
+      <span class="window-filename">test_hypothesis_mbt.py</span>
+    </div>
+    <pre><code class="language-python">from hypothesis import strategies as st
+from hypothesis.stateful import RuleBasedStateMachine, rule, initialize, invariant
+
+class BankAccount:
+    """Тестируемый класс банковского счета."""
+    def __init__(self):
+        self.balance = 0
+        self.is_active = True
+
+    def deposit(self, amount: int):
+        if not self.is_active or amount <= 0:
+            return False
+        self.balance += amount
+        return True
+
+    def withdraw(self, amount: int):
+        if not self.is_active or amount <= 0 or amount > self.balance:
+            return False
+        self.balance -= amount
+        return True
+
+    def freeze(self):
+        self.is_active = False
+
+class BankAccountTestModel(RuleBasedStateMachine):
+    """Исполняемая тестовая модель (Model-Based Testing)."""
+    
+    @initialize()
+    def setup(self):
+        self.account = BankAccount()
+
+    @rule(amount=st.integers(min_value=1, max_value=10000))
+    def deposit(self, amount):
+        old_balance = self.account.balance
+        success = self.account.deposit(amount)
+        if success:
+            assert self.account.balance == old_balance + amount
+
+    @rule(amount=st.integers(min_value=1, max_value=10000))
+    def withdraw(self, amount):
+        old_balance = self.account.balance
+        success = self.account.withdraw(amount)
+        if success:
+            assert self.account.balance == old_balance - amount
+
+    @rule()
+    def freeze_account(self):
+        self.account.freeze()
+
+    @invariant()
+    def balance_must_be_non_negative(self):
+        """Инвариант модели: Баланс никогда не может стать отрицательным."""
+        assert self.account.balance >= 0
+
+# Запуск исполнения MBT-модели
+TestBankAccountMBT = BankAccountTestModel.TestCase</code></pre>
+  </div>
+</div>
+
+<!-- SECTION 5 -->
+<div class="article-section">
+  <h2 id="checklist-vs-model">Часть 5. Традиционный чек-лист vs Тестовая модель, Метрики и Антипаттерны</h2>
+  <p>Для наглядности сравним два подхода к проектированию тестов на одном проекте:</p>
+
+  <div class="table-responsive">
+    <table class="comparison-table">
+      <thead>
+        <tr>
+          <th>Критерий сравнения</th>
+          <th>Традиционный Чек-лист</th>
+          <th>Тестовая модель (Test Model)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Формализация</strong></td>
+          <td>Низкая (Текст на естественном языке)</td>
+          <td>Высокая (Граф состояний, таблица решений)</td>
+        </tr>
+        <tr>
+          <td><strong>Полнота покрытия</strong></td>
+          <td>Субъективная (Зависит от опыта QA)</td>
+          <td>Математическая (100% State/Transition Coverage)</td>
+        </tr>
+        <tr>
+          <td><strong>Поддержка изменений</strong></td>
+          <td>Сложная (Ручной перебор сотен строк)</td>
+          <td>Легкая (Изменение узлов графа/структуры)</td>
+        </tr>
+        <tr>
+          <td><strong>Автоматизация</strong></td>
+          <td>Пишется вручную "степ-бай-степ"</td>
+          <td>Генерируется на основе модели (MBT)</td>
+        </tr>
+        <tr>
+          <td><strong>Поиск скрытых багов</strong></td>
+          <td>Редко (Ограничен привычными сценариями)</td>
+          <td>Очень высокий (Находит комбинаторные взрывы)</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 id="metrics-and-kpi">Метрики эффективности тестовой модели</h3>
+  <p>Чтобы измерить окупаемость (ROI) внедрения тестового моделирования, рекомендуется отслеживать следующие показатели:</p>
+  <ul>
+    <li><strong>Defect Detection Rate at Design Stage:</strong> Процент багов в требованиях, найденных на этапе построения модели до написания кода (норма: > 30%).</li>
+    <li><strong>Model State & Transition Coverage:</strong> Процент покрытых состояний и переходов автотестами в CI/CD пайплайне (норма: 100% State, > 90% Transition).</li>
+    <li><strong>Defect Leakage Rate:</strong> Доля утечки дефектов в продакшен (снижается в 2.5–4 раза после перехода на тестовые модели).</li>
+  </ul>
+
+  <h3>Главные ошибки и антипаттерны при создании тестовых моделей</h3>
+  <div style="background: rgba(244, 63, 94, 0.08); border-left: 4px solid var(--accent-rose); padding: 16px 20px; border-radius: 0 10px 10px 0; margin: 20px 0;">
+    <strong style="color: var(--accent-rose); font-size: 16px;">⚠️ Чего следует избегать (Anti-patterns):</strong>
+    <ol style="margin-top: 10px; padding-left: 20px;">
+      <li><strong>Over-engineering (Избыточная детализация):</strong> Попытка смоделировать всю систему в одной гигантской схеме. Моделируйте систему изолированными модулями!</li>
+      <li><strong>"Застывшая" модель:</strong> Модель создается один раз и не обновляется при рефакторинге API или добавлении бизнес-фич.</li>
+      <li><strong>Игнорирование негативных переходов:</strong> Забывать моделировать невалидные стрелки переходов и обрабатываемые исключения.</li>
+    </ol>
+  </div>
+
+  <h2>Заключение и итоговый чек-лист внедрения</h2>
+  <p><strong>Тестовая модель</strong> — это не академический теоретический инструмент, а практическое оружие современного QA-инженера и QA Automation Lead. Она позволяет избавиться от хаоса при составлении проверок, гарантирует полноту покрытия и открывает двери к автоматической генерации тестов (Model-Based Testing).</p>
+
+  <p>Начните внедрение прямо сегодня: выберите один критический модуль со сложными состояниями (например, корзину или процесс регистрации), нарисуйте его граф состояний в Draw.io/Miro, составьте матрицу переходов и напишите на её основе параметризованные автотесты на PyTest!</p>
+</div>
