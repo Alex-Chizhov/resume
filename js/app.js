@@ -157,7 +157,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     mainFeedView.style.display = 'none';
     articleDetailView.classList.add('active');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo(0, 0);
     window.location.hash = `/article/${slug}`;
     trackPageView();
 
@@ -193,7 +193,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
 
       // Add smooth scroll listener for Table of Contents anchor links
-      document.querySelectorAll('#articleDetailContent a[href^="#pattern-"]').forEach((anchor) => {
+      document.querySelectorAll('#articleDetailContent a[href^="#"]').forEach((anchor) => {
         anchor.addEventListener('click', (e) => {
           e.preventDefault();
           e.stopPropagation();
