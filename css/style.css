@@ -1070,12 +1070,13 @@ body::after {
 }
 
 .toc-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 20px;
+  columns: 2 280px;
+  column-gap: 24px;
 }
 
 .toc-section-block {
+  break-inside: avoid;
+  margin-bottom: 20px;
   display: flex;
   flex-direction: column;
   gap: 8px;
