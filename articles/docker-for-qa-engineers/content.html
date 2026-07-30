@@ -1,23 +1,810 @@
 <div class="article-lead">
-  Полное руководство по Docker Compose для поднятия изолированных баз данных, мок-серверов и сеток браузеров локально и на CI.
+  Контейнеризация с помощью Docker — один из самых востребованных навыков современного QA-инженера и SDET. Забудьте о бесконечных проблемах формата <em>«у меня всё работает локально, а на CI падают тесты»</em> или многочасовых развертываниях тестовой базы данных перед каждым прогоном. В этом практическом руководстве мы с нуля разработаем REST API сервис на FastAPI, напишем для него набор автотестов на PyTest с Allure-отчетами, упакуем всё в Docker Compose и построим полностью автоматизированный CI/CD пайплайн в GitLab CI.
 </div>
 
-<div class="article-section">
-  <h2>Введение в тему</h2>
-  <p>Обзор актуальных решений и подходов по теме <strong>Docker для QA инженера: Запуск тестового окружения в один клик</strong>.</p>
-  <p>В рамках обеспечения качества программного обеспечения грамотно выстроенный процесс позволяет минимизировать риски при релизе новой функциональности.</p>
+<!-- Table of Contents -->
+<div class="toc-container">
+  <div class="toc-title">📑 Оглавление статьи</div>
+  <div class="toc-grid">
+    
+    <div class="toc-section-block">
+      <span class="toc-section-label">Часть 1. Концепции Docker</span>
+      <ul class="toc-list">
+        <li><a href="#docker-intro">1. Что такое Docker и зачем он QA</a></li>
+        <li><a href="#vm-vs-docker">2. Контейнеры vs Виртуальные машины</a></li>
+        <li><a href="#docker-terms">3. Ключевая терминология (Image, Container...)</a></li>
+      </ul>
+    </div>
+
+    <div class="toc-section-block">
+      <span class="toc-section-label">Часть 2. Установка & CLI</span>
+      <ul class="toc-list">
+        <li><a href="#docker-install">4. Установка Docker (Win / macOS / Linux)</a></li>
+        <li><a href="#docker-cli">5. Главные команды Docker CLI (Шпаргалка QA)</a></li>
+      </ul>
+    </div>
+
+    <div class="toc-section-block">
+      <span class="toc-section-label">Часть 3. FastAPI Сервис</span>
+      <ul class="toc-list">
+        <li><a href="#fastapi-app">6. REST API на FastAPI (3 эндпоинта)</a></li>
+        <li><a href="#fastapi-dockerfile">7. Пишем Dockerfile для FastAPI сервиса</a></li>
+      </ul>
+    </div>
+
+    <div class="toc-section-block">
+      <span class="toc-section-label">Часть 4. Контейнер Автотестов</span>
+      <ul class="toc-list">
+        <li><a href="#pytest-tests">8. Пишем автотесты PyTest + Requests</a></li>
+        <li><a href="#autotests-dockerfile">9. Dockerfile.tests для контейнера с тестами</a></li>
+      </ul>
+    </div>
+
+    <div class="toc-section-block">
+      <span class="toc-section-label">Часть 5. Allure, Compose & CI</span>
+      <ul class="toc-list">
+        <li><a href="#allure-integration">10. Allure Report в изолированном окружении</a></li>
+        <li><a href="#docker-compose">11. Docker Compose: Запуск всей системы в 1 клик</a></li>
+        <li><a href="#gitlab-ci">12. GitLab CI пайплайн с нуля (.gitlab-ci.yml)</a></li>
+        <li><a href="#qa-checklist">13. Чек-лист Best Practices Docker для QA</a></li>
+      </ul>
+    </div>
+
+  </div>
 </div>
 
+<!-- SECTION 1 -->
 <div class="article-section">
-  <h2>Ключевые аспекты и нюансы</h2>
+  <h2 id="docker-intro">Часть 1. Что такое Docker и зачем он QA-инженеру</h2>
+  <p>Представьте классическую ситуацию: разработчик передает задачу на тестирование. Вы разворачиваете приложение локально, но оно отказывается запускаться. Выясняется, что у вас установлена другая версия Python, не хватает системных библиотек C++, отсутствует локальный Redis, а переменные окружения прописаны не в том формате.</p>
+
+  <p><strong>Docker</strong> — это платформа автоматизации развертывания и управления приложениями в среде контейнеризации. Он позволяет запаковать приложение со всеми его зависимостями (библиотеками, переменными окружения, драйверами и конфигурациями) в единый изолированный модуль — <strong>контейнер</strong>.</p>
+
+  <div style="background: rgba(99, 102, 241, 0.1); border-left: 4px solid var(--accent-primary); padding: 14px 18px; border-radius: 0 8px 8px 0; margin: 20px 0; font-size: 15px;">
+    <strong style="color: var(--accent-primary);">💡 Зачем Docker инженеру по тестированию (QA / SDET):</strong>
+    <ul style="margin-top: 8px; padding-left: 20px;">
+      <li><strong>Изоляция и воспроизводимость:</strong> Окружение на вашей локальной машине, удаленном сервере и в CI/CD пайплайне на 100% идентично.</li>
+      <li><strong>Запуск в 1 клик:</strong> Поднятие сложного стека (Backend API + Postgres + Redis + Selenoid + WireMock) одной командой <code>docker compose up</code>.</li>
+      <li><strong>Параллельный прогон:</strong> Возможность запускать несколько изолированных экземпляров тестов и сервисов одновременно на разных портах.</li>
+      <li><strong>Отсутствие мусора:</strong> После прогона тестов контейнеры и их временно созданные данные удаляются без остатка в системе.</li>
+    </ul>
+  </div>
+
+  <h3 id="vm-vs-docker">Сравнение: Виртуальные машины vs Docker Контейнеры</h3>
+  <p>Частый вопрос новичков: <em>«Чем Docker отличается от VirtualBox или VMware?»</em>. Главное отличие — на каком уровне происходит виртуализация.</p>
+
+  <table style="width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 14px; text-align: left;">
+    <thead>
+      <tr style="border-bottom: 2px solid var(--border-color); background: var(--bg-surface);">
+        <th style="padding: 12px; color: var(--accent-cyan);">Характеристика</th>
+        <th style="padding: 12px; color: var(--accent-rose);">Виртуальная машина (ВМ)</th>
+        <th style="padding: 12px; color: var(--accent-emerald);">Docker Контейнер</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 10px; font-weight: 600;">Гостевая ОС</td>
+        <td style="padding: 10px;">Требует полноценную ОС (несколько ГБ)</td>
+        <td style="padding: 10px;">Использует ядро хостовой ОС (несколько МБ)</td>
+      </tr>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 10px; font-weight: 600;">Скорость старта</td>
+        <td style="padding: 10px;">Минуты (долгая загрузка ОС)</td>
+        <td style="padding: 10px;">Милисекунды / Секунды</td>
+      </tr>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 10px; font-weight: 600;">Потребление ресурсов</td>
+        <td style="padding: 10px;">Высокое (заранее выделенные RAM и CPU)</td>
+        <td style="padding: 10px;">Минимальное (выделение по требованию)</td>
+      </tr>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 10px; font-weight: 600;">Производительность</td>
+        <td style="padding: 10px;">Снижена из-за гипервизора</td>
+        <td style="padding: 10px;">Нативная скорость выполнения кода</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3 id="docker-terms">Ключевая терминология Docker</h3>
   <ul>
-    <li>Практическая настройка окружения и зависимостей.</li>
-    <li>Интеграция с CI/CD пайплайном и генерация отчетов.</li>
-    <li>Масштабирование тестовых наборов и оптимизация времени выполнения.</li>
+    <li><strong>Image (Образ):</strong> Неизменяемый шаблон («чертеж» или слепок), содержащий код приложения, виртуальную файловую систему и зависимости. Аналог установочного диска ISO или инсталлятора.</li>
+    <li><strong>Container (Контейнер):</strong> Запущенный экземпляр образа. Работающий процесс в изолированном пространстве имён. Из одного образа можно запустить 10 одинаковых контейнеров.</li>
+    <li><strong>Dockerfile:</strong> Текстовый файл с последовательными инструкциями по сборке Docker-образа (какую базовую ОС взять, какие зависимости установить, какой файл запустить).</li>
+    <li><strong>Docker Registry:</strong> Хранилище и реестр Docker-образов (например, открытый <a href="https://hub.docker.com/" target="_blank" rel="noopener">Docker Hub</a> или приватный GitLab Container Registry).</li>
+    <li><strong>Volume (Том):</strong> Специальный механизм для сохранения данных вне файловой системы контейнера (чтобы отчеты Allure или данные из PostgreSQL не пропали после остановки контейнера).</li>
+    <li><strong>Network (Сеть):</strong> Изолированная виртуальная сеть, связывающая контейнеры между собой по имени сервиса без необходимости пробрасывать порты на хост.</li>
   </ul>
 </div>
 
+<!-- SECTION 2 -->
 <div class="article-section">
+  <h2 id="docker-install">Часть 2. Установка Docker и Первая Настройка</h2>
+  
+  <h3>1. Windows (Docker Desktop + WSL 2)</h3>
+  <p>Для работы Docker на Windows требуется подсистема Linux (WSL 2):</p>
+  <ol>
+    <li>Откройте PowerShell от имени Администратора и выполните установку WSL 2:
+      <div class="code-window">
+        <div class="code-window-header">
+          <div class="window-dots"><span class="dot dot-red"></span><span class="dot dot-yellow"></span><span class="dot dot-green"></span></div>
+          <span class="window-filename">powershell.exe</span>
+        </div>
+        <pre><code class="language-bash">wsl --install</code></pre>
+      </div>
+    </li>
+    <li>Скачайте инсталлятор <a href="https://www.docker.com/products/docker-desktop/" target="_blank" rel="noopener">Docker Desktop for Windows</a>.</li>
+    <li>В ходе установки обязательно поставьте галочку <em>«Use WSL 2 instead of Hyper-V»</em>.</li>
+    <li>После перезагрузки ПК запустите Docker Desktop и дождитесь статуса <strong>Engine Running</strong>.</li>
+  </ol>
+
+  <h3>2. macOS (Apple Silicon M1/M2/M3 & Intel)</h3>
+  <p>Скачайте Docker Desktop для соответствующей архитектуры (Apple Chip или Intel Chip) с официального сайта или установите через Homebrew:</p>
+  <div class="code-window">
+    <div class="code-window-header">
+      <div class="window-dots"><span class="dot dot-red"></span><span class="dot dot-yellow"></span><span class="dot dot-green"></span></div>
+      <span class="window-filename">terminal.app</span>
+    </div>
+    <pre><code class="language-bash">brew install --cask docker</code></pre>
+  </div>
+
+  <h3>3. Linux (Ubuntu / Debian)</h3>
+  <p>На Linux рекомендуется устанавливать легкий <code>docker-engine</code> и <code>docker-compose-plugin</code> через официальный репозиторий:</p>
+  <div class="code-window">
+    <div class="code-window-header">
+      <div class="window-dots"><span class="dot dot-red"></span><span class="dot dot-yellow"></span><span class="dot dot-green"></span></div>
+      <span class="window-filename">bash</span>
+    </div>
+    <pre><code class="language-bash"># Обновляем индекс пакетов и устанавливаем утилиты
+sudo apt-get update
+sudo apt-get install -y ca-certificates curl gnupg
+
+# Добавляем официальный GPG-ключ Docker
+sudo install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+
+# Устанавливаем Docker Engine и Compose plugin
+sudo apt-get update
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+# Добавляем текущего пользователя в группу docker (чтобы не писать sudo)
+sudo usermod -aG docker $USER</code></pre>
+  </div>
+
+  <h3 id="docker-cli">Шпаргалка по основным командам Docker CLI для QA</h3>
+  <div class="code-window">
+    <div class="code-window-header">
+      <div class="window-dots"><span class="dot dot-red"></span><span class="dot dot-yellow"></span><span class="dot dot-green"></span></div>
+      <span class="window-filename">docker-cheat-sheet.sh</span>
+    </div>
+    <pre><code class="language-bash"># Проверка корректности установки
+docker --version
+docker run hello-world
+
+# Сборка Docker-образа из текущей директории
+docker build -t my-app:1.0 .
+
+# Просмотр списка локальных образов
+docker images
+
+# Запуск контейнера в фоновом режиме (detached) с пробросом порта 8000:8000
+docker run -d -p 8000:8000 --name my-running-app my-app:1.0
+
+# Список активных контейнеров (-a показывает в том числе остановленные)
+docker ps -a
+
+# Просмотр логов контейнера (флаг -f включат режим стриминга в реальном времени)
+docker logs -f my-running-app
+
+# Выполнение команды внутри работающего контейнера (вход в bash)
+docker exec -it my-running-app /bin/bash
+
+# Остановка и удаление контейнера
+docker stop my-running-app
+docker rm my-running-app
+
+# Очистка неиспользуемых контейнеров, сетей и кэша сборки
+docker system prune -af --volumes</code></pre>
+  </div>
+</div>
+
+<!-- SECTION 3 -->
+<div class="article-section">
+  <h2 id="fastapi-app">Часть 3. Создаем Микросервис на FastAPI (3 Эндпоинта)</h2>
+  <p>Для создания реалистичного тестового окружения напишем простой REST API сервис на фреймворке FastAPI. Сервис будет выполнять роль тестируемой системы (SUT — System Under Test).</p>
+
+  <p>Наш сервис будет содержать 3 классических эндпоинта:</p>
+  <ol>
+    <li><code>GET /health</code> — Проверка доступности (Healthcheck). Возвращает status 200 OK.</li>
+    <li><code>POST /api/v1/users</code> — Создание нового пользователя с валидацией Pydantic. Возвращает 201 Created.</li>
+    <li><code>GET /api/v1/users/{user_id}</code> — Получение профиля пользователя по ID. Возвращает 200 OK или 404 Not Found.</li>
+  </ol>
+
+  <p>Создадим структуру файлов нашего проекта:</p>
+  <div class="code-window">
+    <div class="code-window-header">
+      <div class="window-dots"><span class="dot dot-red"></span><span class="dot dot-yellow"></span><span class="dot dot-green"></span></div>
+      <span class="window-filename">Структура проекта</span>
+    </div>
+    <pre><code class="language-text">qa-docker-demo/
+├── app/
+│   ├── __init__.py
+│   └── main.py              # Исходный код FastAPI микросервиса
+├── tests/
+│   ├── __init__.py
+│   └── test_users_api.py    # Автотесты на PyTest + Requests + Allure
+├── Dockerfile               # Образ для FastAPI сервиса
+├── Dockerfile.tests         # Образ для запуска автотестов
+├── docker-compose.yml       # Оркестрация локального запуска
+├── requirements-app.txt     # Зависимости микросервиса
+├── requirements-tests.txt   # Зависимости тестового фреймворка
+└── .gitlab-ci.yml           # CI/CD пайплайн для GitLab</code></pre>
+  </div>
+
+  <h4>1. Файл <code>requirements-app.txt</code>:</h4>
+  <div class="code-window">
+    <div class="code-window-header">
+      <div class="window-dots"><span class="dot dot-red"></span><span class="dot dot-yellow"></span><span class="dot dot-green"></span></div>
+      <span class="window-filename">requirements-app.txt</span>
+    </div>
+    <pre><code class="language-text">fastapi==0.110.0
+uvicorn==0.28.0
+pydantic==2.6.4</code></pre>
+  </div>
+
+  <h4>2. Файл <code>app/main.py</code> (Исходный код приложения с подробными комментариями):</h4>
+  <div class="code-window">
+    <div class="code-window-header">
+      <div class="window-dots"><span class="dot dot-red"></span><span class="dot dot-yellow"></span><span class="dot dot-green"></span></div>
+      <span class="window-filename">app/main.py</span>
+    </div>
+    <pre><code class="language-python">from fastapi import FastAPI, HTTPException, status
+from pydantic import BaseModel, EmailStr
+from typing import Dict, Optional
+import uuid
+
+# Инициализируем объект приложения FastAPI
+app = FastAPI(
+    title="User Management Microservice",
+    description="Микросервис управления пользователями для демонстрации Docker + QA",
+    version="1.0.0"
+)
+
+# Имитируем in-memory базу данных для хранения пользователей
+users_db: Dict[str, dict] = {}
+
+# Pydantic схема для входящих данных при создании пользователя
+class UserCreateScheme(BaseModel):
+    username: str
+    email: str
+    role: str = "tester"
+
+# Pydantic схема для ответа приложения
+class UserResponseScheme(BaseModel):
+    id: str
+    username: str
+    email: str
+    role: str
+    is_active: bool
+
+
+# ЭНДПОИНТ 1: Healthcheck (Проверка работоспособности сервиса)
+@app.get(
+    "/health",
+    status_code=status.HTTP_200_OK,
+    summary="Healthcheck эндпоинт",
+    tags=["Health"]
+)
+def health_check():
+    """Служебный эндпоинт для проверки статуса сервиса из Docker Healthcheck."""
+    return {"status": "ok", "service": "user-management-api"}
+
+
+# ЭНДПОИНТ 2: Создание пользователя (POST /api/v1/users)
+@app.post(
+    "/api/v1/users",
+    response_model=UserResponseScheme,
+    status_code=status.HTTP_201_CREATED,
+    summary="Создание нового пользователя",
+    tags=["Users"]
+)
+def create_user(user: UserCreateScheme):
+    """
+    Принимает JSON с параметрами username, email и role.
+    Генерирует уникальный UUID и сохраняет пользователя в БД.
+    """
+    user_id = str(uuid.uuid4())
+    new_user = {
+        "id": user_id,
+        "username": user.username,
+        "email": user.email,
+        "role": user.role,
+        "is_active": True
+    }
+    users_db[user_id] = new_user
+    return new_user
+
+
+# ЭНДПОИНТ 3: Получение пользователя по ID (GET /api/v1/users/{user_id})
+@app.get(
+    "/api/v1/users/{user_id}",
+    response_model=UserResponseScheme,
+    status_code=status.HTTP_200_OK,
+    summary="Получение профиля пользователя по ID",
+    tags=["Users"]
+)
+def get_user_by_id(user_id: str):
+    """
+    Ищет пользователя в БД по переданному user_id.
+    Если пользователь найден — возвращает статус 200 и объект пользователя.
+    Если не найден — генерирует HTTPException со статусом 404.
+    """
+    if user_id not in users_db:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Пользователь с ID '{user_id}' не найден"
+        )
+    return users_db[user_id]</code></pre>
+  </div>
+
+  <h3 id="fastapi-dockerfile">7. Пишем Dockerfile для FastAPI сервиса</h3>
+  <p>Теперь создадим файл <code>Dockerfile</code>, который описывает, как собрать Docker-образ нашего FastAPI микросервиса. Будем использовать паттерн использования легких дистрибутивов <code>python:3.11-slim</code>.</p>
+
+  <div class="code-window">
+    <div class="code-window-header">
+      <div class="window-dots"><span class="dot dot-red"></span><span class="dot dot-yellow"></span><span class="dot dot-green"></span></div>
+      <span class="window-filename">Dockerfile</span>
+    </div>
+    <pre><code class="language-dockerfile"># 1. За основу берем официальный компактный образ Python 3.11 на базе Debian Slim
+FROM python:3.11-slim
+
+# 2. Устанавливаем переменные окружения Python:
+# PYTHONUNBUFFERED=1 гарантирует мгновенный вывод логов в консоль Docker без кэширования
+# PYTHONDONTWRITEBYTECODE=1 запрещает создание .pyc файлов
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
+# 3. Задаем рабочей директорией внутри контейнера папку /app
+WORKDIR /app
+
+# 4. Сначала копируем ТОЛЬКО файл зависимостей!
+# Это критично для эффективного кэширования слоев Docker:
+# если код приложения изменится, а зависимости нет — Docker не будет переустанавливать pip пакеты!
+COPY requirements-app.txt .
+
+# 5. Устанавливаем зависимости без сохранения кэша pip (флаг --no-cache-dir уменьшает размер образа)
+RUN pip install --no-cache-dir -r requirements-app.txt
+
+# 6. Копируем исходный код нашего приложения в контейнер
+COPY app/ ./app/
+
+# 7. Открываем порт 8000 (документирование порта для разработчиков)
+EXPOSE 8000
+
+# 8. Точка входа: запускаем ASGI сервер uvicorn на адресе 0.0.0.0 (чтобы принимать запросы снаружи контейнера)
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]</code></pre>
+  </div>
+
+  <p><strong>Сборка и ручной запуск FastAPI сервиса:</strong></p>
+  <div class="code-window">
+    <div class="code-window-header">
+      <div class="window-dots"><span class="dot dot-red"></span><span class="dot dot-yellow"></span><span class="dot dot-green"></span></div>
+      <span class="window-filename">bash</span>
+    </div>
+    <pre><code class="language-bash"># Сборка образа с тегом fastapi-service:1.0
+docker build -t fastapi-service:1.0 .
+
+# Запуск контейнера в фоне с пробросом порта 8000 на локальную машину
+docker run -d -p 8000:8000 --name fastapi-app fastapi-service:1.0
+
+# Проверка работоспособности через curl
+curl http://localhost:8000/health
+# Ответ: {"status":"ok","service":"user-management-api"}</code></pre>
+  </div>
+</div>
+
+<!-- SECTION 4 -->
+<div class="article-section">
+  <h2 id="pytest-tests">Часть 4. Создаем Контейнер с Автотестами (PyTest + Requests + Allure)</h2>
+  <p>Теперь создадим изолированный тестовый фреймворк. Главное правило разработки автотестов в Docker: <strong>URL тестируемого сервиса должен передаваться динамически через переменные окружения (Environment Variables)</strong>, чтобы тесты могли запускаться как локально (`http://localhost:8000`), так и внутри контейнерной сети (`http://fastapi-service:8000`).</p>
+
+  <h4>1. Файл <code>requirements-tests.txt</code>:</h4>
+  <div class="code-window">
+    <div class="code-window-header">
+      <div class="window-dots"><span class="dot dot-red"></span><span class="dot dot-yellow"></span><span class="dot dot-green"></span></div>
+      <span class="window-filename">requirements-tests.txt</span>
+    </div>
+    <pre><code class="language-text">pytest==8.1.1
+requests==2.31.0
+allure-pytest==2.13.5</code></pre>
+  </div>
+
+  <h4>2. Файл <code>tests/test_users_api.py</code> (Полный комплект тестов с разметкой Allure):</h4>
+  <div class="code-window">
+    <div class="code-window-header">
+      <div class="window-dots"><span class="dot dot-red"></span><span class="dot dot-yellow"></span><span class="dot dot-green"></span></div>
+      <span class="window-filename">tests/test_users_api.py</span>
+    </div>
+    <pre><code class="language-python">import os
+import pytest
+import requests
+import allure
+
+# Динамически получаем базовый URL сервиса из переменной окружения BASE_URL
+# По умолчанию используем localhost:8000 для локального запуска без Docker
+BASE_URL = os.getenv("BASE_URL", "http://localhost:8000")
+
+
+@allure.epic("API Testing")
+@allure.feature("User Management Service")
+class TestUserApi:
+
+    @allure.story("Healthcheck")
+    @allure.title("Проверка доступности сервиса (GET /health)")
+    @allure.severity(allure.severity_level.BLOCKER)
+    def test_healthcheck_returns_200(self):
+        """Тест проверяет, что эндпоинт /health возвращает HTTP 200 OK и статусный JSON."""
+        url = f"{BASE_URL}/health"
+        
+        with allure.step(f"Отправка GET запроса на {url}"):
+            response = requests.get(url, timeout=5)
+            
+        with allure.step("Проверка статус-кода и ответа"):
+            assert response.status_code == 200, f"Ожидался 200, получен {response.status_code}"
+            data = response.json()
+            assert data["status"] == "ok"
+            assert data["service"] == "user-management-api"
+
+    @allure.story("Create User")
+    @allure.title("Успешное создание нового пользователя (POST /api/v1/users)")
+    @allure.severity(allure.severity_level.CRITICAL)
+    def test_create_user_success(self):
+        """Тест проверяет создание нового пользователя и структуру ответа."""
+        url = f"{BASE_URL}/api/v1/users"
+        payload = {
+            "username": "qa_hero",
+            "email": "hero@qalify.ru",
+            "role": "automation_lead"
+        }
+        
+        with allure.step("Отправка POST запроса на создание пользователя"):
+            response = requests.post(url, json=payload, timeout=5)
+            
+        with allure.step("Проверка ответа сервера (HTTP 201 Created)"):
+            assert response.status_code == 201
+            user_data = response.json()
+            assert "id" in user_data
+            assert user_data["username"] == payload["username"]
+            assert user_data["email"] == payload["email"]
+            assert user_data["role"] == payload["role"]
+            assert user_data["is_active"] is True
+
+    @allure.story("Get User")
+    @allure.title("Получение ранее созданного пользователя по ID (GET /api/v1/users/{id})")
+    @allure.severity(allure.severity_level.CRITICAL)
+    def test_get_user_by_id_success(self):
+        """Тест сначала создает пользователя, а затем запрашивает его профиль по ID."""
+        # Шаг 1: Создание пользователя
+        create_url = f"{BASE_URL}/api/v1/users"
+        payload = {"username": "alex_sdet", "email": "alex@qalify.ru", "role": "sdet"}
+        create_resp = requests.post(create_url, json=payload, timeout=5)
+        created_user_id = create_resp.json()["id"]
+
+        # Шаг 2: Получение профиля по ID
+        get_url = f"{BASE_URL}/api/v1/users/{created_user_id}"
+        with allure.step(f"Запрос профиля пользователя с ID {created_user_id}"):
+            response = requests.get(get_url, timeout=5)
+            
+        with allure.step("Проверка совпадения данных пользователя"):
+            assert response.status_code == 200
+            user_data = response.json()
+            assert user_data["id"] == created_user_id
+            assert user_data["username"] == "alex_sdet"
+
+    @allure.story("Get User Errors")
+    @allure.title("Получение несуществующего пользователя возвращает 404 Not Found")
+    @allure.severity(allure.severity_level.NORMAL)
+    def test_get_nonexistent_user_returns_404(self):
+        """Тест передает несуществующий UUID и проверяет обработку ошибки 404."""
+        random_id = "non-existent-uuid-99999"
+        url = f"{BASE_URL}/api/v1/users/{random_id}"
+        
+        with allure.step("Отправка запроса с невалидным ID"):
+            response = requests.get(url, timeout=5)
+            
+        with allure.step("Проверка HTTP 404 Not Found"):
+            assert response.status_code == 404
+            error_data = response.json()
+            assert "detail" in error_data
+            assert "не найден" in error_data["detail"]</code></pre>
+  </div>
+
+  <h3 id="autotests-dockerfile">9. Пишем Dockerfile.tests для тестового контейнера</h3>
+  <p>Создадим специализированный файл <code>Dockerfile.tests</code>, который подготавливает окружение для прогона PyTest автотестов и записи сырых результатов Allure в специальную папку <code>/app/allure-results</code>.</p>
+
+  <div class="code-window">
+    <div class="code-window-header">
+      <div class="window-dots"><span class="dot dot-red"></span><span class="dot dot-yellow"></span><span class="dot dot-green"></span></div>
+      <span class="window-filename">Dockerfile.tests</span>
+    </div>
+    <pre><code class="language-dockerfile"># 1. Используем аналогичный базовый образ Python
+FROM python:3.11-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
+WORKDIR /app
+
+# 2. Копируем и устанавливаем зависимости тестового фреймворка
+COPY requirements-tests.txt .
+RUN pip install --no-cache-dir -r requirements-tests.txt
+
+# 3. Копируем исходный код автотестов
+COPY tests/ ./tests/
+
+# 4. Создаем директорию для записи Allure отчетов
+RUN mkdir -p /app/allure-results
+
+# 5. Инструкция по умолчанию: запуск pytest с генерацией отчетов allure в папку /app/allure-results
+CMD ["pytest", "tests/", "-v", "--alluredir=/app/allure-results"]</code></pre>
+  </div>
+</div>
+
+<!-- SECTION 5 -->
+<div class="article-section">
+  <h2 id="allure-integration">Часть 5. Allure Report в изолированном окружении</h2>
+  <p>Главная сложность при запуске автотестов внутри Docker — <strong>сохранение результатов отчетов после завершения работы контейнера</strong>. По умолчанию, когда контейнер с тестами завершает работу и останавливается, все созданные внутри него файлы пропадают.</p>
+
+  <p>Для решения этой проблемы используются <strong>Docker Volumes (Тома)</strong> или <strong>Bind Mounts (проброс папки хоста)</strong>. Команда запуска автотестов с сохранением Allure результатов на локальный диск выглядела бы так:</p>
+
+  <div class="code-window">
+    <div class="code-window-header">
+      <div class="window-dots"><span class="dot dot-red"></span><span class="dot dot-yellow"></span><span class="dot dot-green"></span></div>
+      <span class="window-filename">bash</span>
+    </div>
+    <pre><code class="language-bash"># Создание bind mount: папка ./allure-results на хосте монтируется в /app/allure-results внутри контейнера
+docker run --rm \
+  --network="host" \
+  -e BASE_URL="http://localhost:8000" \
+  -v $(pwd)/allure-results:/app/allure-results \
+  autotests-image:1.0
+
+# После завершения генерация красивого HTML отчета на локальной машине:
+allure generate ./allure-results --clean -o ./allure-report
+allure open ./allure-report</code></pre>
+  </div>
+</div>
+
+<!-- SECTION 6 -->
+<div class="article-section">
+  <h2 id="docker-compose">Часть 6. Docker Compose: Запуск в 1 клик</h2>
+  <p>Запускать каждый контейнер вручную через длинные команды <code>docker run</code> неудобно. <strong>Docker Compose</strong> позволяет описать всю архитектуру (API сервис, баз данных, селенуим-сетку, контейнер с автотестами и Allure) в одном человекочитаемом YAML-файле.</p>
+
+  <p>Ключевая задача QA при составлении Compose-файла — <strong>правильно настроить порядок запуска (Healthcheck и `depends_on`)</strong>. Тестовый контейнер не должен начинать выполнение тестов до того, как API сервис полностью скомпилируется и начнет отвечать на HTTP-запросы!</p>
+
+  <h4>Файл <code>docker-compose.yml</code> (Полный готовый сценарий):</h4>
+  <div class="code-window">
+    <div class="code-window-header">
+      <div class="window-dots"><span class="dot dot-red"></span><span class="dot dot-yellow"></span><span class="dot dot-green"></span></div>
+      <span class="window-filename">docker-compose.yml</span>
+    </div>
+    <pre><code class="language-yaml">version: '3.8'
+
+# Объявляем изолированную виртуальную сеть для наших сервисов
+networks:
+  qa_network:
+    driver: bridge
+
+# Объявляем volume для хранения и передаче сырых отчетов Allure
+volumes:
+  allure_results_data:
+
+services:
+  # СЕРВИС 1: Микросервис на FastAPI (System Under Test)
+  fastapi-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sut_fastapi_app
+    ports:
+      - "8000:8000"
+    networks:
+      - qa_network
+    # Настраиваем Healthcheck для автоматической проверки готовности сервиса
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 3s
+      timeout: 3s
+      retries: 5
+      start_period: 2s
+    restart: on-failure
+
+  # СЕРВИС 2: Контейнер с автотестами PyTest
+  autotests:
+    build:
+      context: .
+      dockerfile: Dockerfile.tests
+    container_name: qa_pytest_runner
+    environment:
+      # Внутри сети Docker обращаться к сервису можно прямо по имени сервиса 'fastapi-service'!
+      - BASE_URL=http://fastapi-service:8000
+    networks:
+      - qa_network
+    volumes:
+      # Монтируем локальную директорию ./allure-results для сохранения результатов отчета на хосте
+      - ./allure-results:/app/allure-results
+    # ТРЕБОВАНИЕ: Тесты запускаются СТРОГО ПОСЛЕ того, как fastapi-service станет HEALTHY!
+    depends_on:
+      fastapi-service:
+        condition: service_healthy
+
+  # СЕРВИС 3: Генератор отчетов Allure (Allure Docker Service)
+  allure-report:
+    image: frankescobar/allure-docker-service:2.21.0
+    container_name: qa_allure_server
+    environment:
+      CHECK_RESULTS_EVERY_SECONDS: 3
+      KEEP_HISTORY: "TRUE"
+    ports:
+      - "5050:5050"
+    volumes:
+      - ./allure-results:/app/allure-results
+    depends_on:
+      - autotests</code></pre>
+  </div>
+
+  <h3 id="compose-run">Запуск автотестов в один клик:</h3>
+  <div class="code-window">
+    <div class="code-window-header">
+      <div class="window-dots"><span class="dot dot-red"></span><span class="dot dot-yellow"></span><span class="dot dot-green"></span></div>
+      <span class="window-filename">bash</span>
+    </div>
+    <pre><code class="language-bash"># Магическая команда запуска всего тестового окружения с флагом возврата кода ответа тестов:
+docker compose up --build --exit-code-from autotests</code></pre>
+  </div>
+
+  <div style="background: rgba(16, 185, 129, 0.1); border-left: 4px solid var(--accent-emerald); padding: 14px 18px; border-radius: 0 8px 8px 0; margin: 20px 0; font-size: 15px;">
+    <strong style="color: var(--accent-emerald);">🎯 Что происходит при выполнении этой команды:</strong>
+    <ol style="margin-top: 8px; padding-left: 20px;">
+      <li>Docker автоматически собирает два образа (FastAPI и PyTest).</li>
+      <li>Создает закрытую виртуальную сеть <code>qa_network</code>.</li>
+      <li>Запускает <code>fastapi-service</code> и начинает опрашивать его healthcheck на <code>/health</code>.</li>
+      <li>Как только API отвечает 200 OK, Docker Compose стартует <code>autotests</code>.</li>
+      <li>Тесты выполняются, сохраняют Allure-файлы в смонтированную папку <code>./allure-results</code>.</li>
+      <li>Благодаря флагу <code>--exit-code-from autotests</code>, весь процесс возвращает код завершения <strong>0</strong> (если все тесты прошли) или <strong>1</strong> (если упал хотя бы 1 тест). Это идеально для CI/CD!</li>
+    </ol>
+  </div>
+</div>
+
+<!-- SECTION 7 -->
+<div class="article-section">
+  <h2 id="gitlab-ci">Часть 7. Запуск в Пайплайне GitLab CI с Нуля</h2>
+  <p>Теперь перенесем наш стек в реальный CI/CD пайплайн на платформе GitLab CI. Мы напишем конфигурацию <code>.gitlab-ci.yml</code> с использованием технологии <strong>Docker-in-Docker (dind)</strong>.</p>
+
+  <p>Пайплайн будет состоять из 3 последовательных стадий (stages):</p>
+  <ul>
+    <li><code>test</code> — Сборка и запуск тестового окружения через Docker Compose.</li>
+    <li><code>reports</code> — Сборка красивого HTML отчета Allure из артефактов.</li>
+    <li><code>deploy</code> — Публикация HTML отчета Allure на GitLab Pages.</li>
+  </ul>
+
+  <h4>Полный файл <code>.gitlab-ci.yml</code>:</h4>
+  <div class="code-window">
+    <div class="code-window-header">
+      <div class="window-dots"><span class="dot dot-red"></span><span class="dot dot-yellow"></span><span class="dot dot-green"></span></div>
+      <span class="window-filename">.gitlab-ci.yml</span>
+    </div>
+    <pre><code class="language-yaml"># Список стадий выполнения CI/CD пайплайна
+stages:
+  - test
+  - reports
+  - deploy
+
+# Глобальные переменные для работы Docker-in-Docker (dind)
+variables:
+  DOCKER_HOST: tcp://docker:2375
+  DOCKER_TLS_CERTDIR: ""
+  DOCKER_DRIVER: overlay2
+
+# СТАДИЯ 1: Запуск автоматизированных тестов в Docker Compose
+run_autotests:
+  stage: test
+  image: docker:24.0.5
+  services:
+    - name: docker:24.0.5-dind
+      entrypoint: ["dockerd-entrypoint.sh"]
+      command: ["--tls=false"]
+  before_script:
+    # Устанавливаем docker-compose CLI утилиту
+    - apk add --no-cache docker-compose
+    # Проверяем доступность Docker демона
+    - docker info
+  script:
+    - echo "🚀 Запуск тестового окружения и прогон PyTest..."
+    # Запускаем Compose стек. При падении тестов шаг завершится с ошибкой
+    - docker-compose up --build --exit-code-from autotests
+  after_script:
+    - echo "🧹 Очистка контейнеров..."
+    - docker-compose down -v
+  artifacts:
+    # Сохраняем сгенерированные сырые данные Allure как артефакт пайплайна
+    name: "allure-results-$CI_COMMIT_REF_SLUG"
+    when: always
+    expire_in: 7 days
+    paths:
+      - allure-results/
+
+# СТАДИЯ 2: Генерация HTML отчета Allure
+generate_allure_report:
+  stage: reports
+  image: frankescobar/allure-docker-service:2.21.0
+  when: always
+  script:
+    - echo "📊 Генерация статичного HTML отчета Allure..."
+    # Команда генерации отчета из входной папки allure-results в папку allure-report
+    - allure generate allure-results --clean -o public
+  artifacts:
+    name: "allure-html-report"
+    when: always
+    expire_in: 30 days
+    paths:
+      - public/
+
+# СТАДИЯ 3: Публикация отчета на GitLab Pages
+pages:
+  stage: deploy
+  image: alpine:latest
+  when: always
+  script:
+    - echo "🌐 Публикация Allure отчета на GitLab Pages..."
+    - ls -la public/
+  artifacts:
+    paths:
+      - public
+  only:
+    - main
+    - master</code></pre>
+  </div>
+
+  <div style="background: rgba(99, 102, 241, 0.1); border-left: 4px solid var(--accent-primary); padding: 14px 18px; border-radius: 0 8px 8px 0; margin: 20px 0; font-size: 15px;">
+    <strong style="color: var(--accent-primary);">💡 Важное отличие в CI:</strong>
+    Благодаря секции <code>artifacts: when: always</code>, сырые данные Allure и итоговый HTML-отчет сохраняются в GitLab <strong>даже если автотесты упали с падающими ассертами!</strong> Вы всегда сможете открыть готовую ссылку на GitLab Pages и детально проанализировать скриншоты и ошибки.
+  </div>
+</div>
+
+<!-- SECTION 8 -->
+<div class="article-section">
+  <h2 id="qa-checklist">Часть 8. Чек-лист и Best Practices Docker для QA</h2>
+
+  <div class="toc-container" style="margin-top: 10px;">
+    <div style="font-weight: 700; color: var(--accent-cyan); margin-bottom: 12px; font-size: 16px;">
+      ⚡ Золотые правила работы с Docker в автотестировании:
+    </div>
+    <ul style="list-style: none; padding-left: 0;">
+      <li style="margin-bottom: 12px; display: flex; gap: 10px; align-items: flex-start;">
+        <span style="color: var(--accent-emerald); font-weight: bold;">✔</span>
+        <div><strong>Используйте `.dockerignore`:</strong> Исключайте из контекста сборки папки <code>.git</code>, <code>.pytest_cache</code>, <code>__pycache__</code>, <code>venv</code> и <code>.env</code>. Это ускоряет сборку в разы!</div>
+      </li>
+      <li style="margin-bottom: 12px; display: flex; gap: 10px; align-items: flex-start;">
+        <span style="color: var(--accent-emerald); font-weight: bold;">✔</span>
+        <div><strong>Фиксируйте версии (Pinning Versions):</strong> Никогда не используйте тег <code>python:latest</code> в продакшн Dockerfile. Указывайте точные версии: <code>python:3.11-slim</code>, <code>postgres:15.4-alpine</code>.</div>
+      </li>
+      <li style="margin-bottom: 12px; display: flex; gap: 10px; align-items: flex-start;">
+        <span style="color: var(--accent-emerald); font-weight: bold;">✔</span>
+        <div><strong>Используйте slim и alpine версии:</strong> Базовый образ Ubuntu весит ~800MB, а Debian Slim или Alpine — от 50MB до 150MB.</div>
+      </li>
+      <li style="margin-bottom: 12px; display: flex; gap: 10px; align-items: flex-start;">
+        <span style="color: var(--accent-emerald); font-weight: bold;">✔</span>
+        <div><strong>Настраивайте Healthcheck:</strong> Никогда не надейтесь на задержки <code>sleep 10</code>. Используйте <code>healthcheck</code> сервисов в Docker Compose.</div>
+      </li>
+      <li style="margin-bottom: 12px; display: flex; gap: 10px; align-items: flex-start;">
+        <span style="color: var(--accent-emerald); font-weight: bold;">✔</span>
+        <div><strong>Очищайте неиспользуемые ресурсы:</strong> Регулярно запускайте <code>docker system prune -af --volumes</code> на тестовых раннерах CI.</div>
+      </li>
+    </ul>
+  </div>
+
   <h2>Заключение</h2>
-  <p>Подводя итог, внедрение лучших практик для <em>Docker для QA инженера: Запуск тестового окружения в один клик</em> повышает стабильность вашего продукта и ускоряет обратную связь.</p>
+  <p>Контейнеризация тестовых окружений с помощью Docker и Docker Compose переводит автоматизацию тестирования на абсолютно новый уровень зрелости. Вы получаете полностью герметичную, изолированную и легко масштабируемую систему, которая запускается буквально одной командой как на ноутбуке QA инженера, так и в CI/CD пайплайне GitLab.</p>
+
+  <p>Применяйте описанный паттерн в своих проектах, экономьте время команды и забудьте о нестабильных окружениях раз и навсегда!</p>
 </div>

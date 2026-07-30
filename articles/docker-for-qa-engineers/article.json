@@ -2,9 +2,9 @@
   "id": 5,
   "slug": "docker-for-qa-engineers",
   "title": "Docker для QA инженера: Запуск тестового окружения в один клик",
-  "image": "https://images.unsplash.com/photo-1605745341112-85968b19335b?auto=format&fit=crop&w=800&q=80",
+  "image": "assets/images/docker-qa-cover.png",
   "category": "DevOps",
-  "date": "16 июля 2026",
-  "readTime": "9 мин",
-  "excerpt": "Полное руководство по Docker Compose для поднятия изолированных баз данных, мок-серверов и сеток браузеров локально и на CI."
+  "date": "30 июля 2026",
+  "readTime": "22 мин",
+  "excerpt": "Практическое руководство по Docker & Docker Compose для QA: пишем REST API на FastAPI, автотесты на PyTest с Allure отчетами и деплоим весь стек в GitLab CI с нуля."
 }
