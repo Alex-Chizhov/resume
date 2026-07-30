@@ -1,0 +1,10 @@
+{
+  "id": 6,
+  "slug": "linux-for-qa-engineers",
+  "title": "Linux для QA инженера",
+  "image": "assets/images/linux-qa-cover.png",
+  "category": "DevOps & Linux",
+  "date": "31 июля 2026",
+  "readTime": "25 мин",
+  "excerpt": "Исчерпывающее практическое руководство по Linux для тестировщиков: 50+ главных команд по группам задач, углубленная отладка и чтение логов (grep, journalctl, jq, zgrep), диагностика сети (curl, ss, tcpdump) и управление процессами."
+}

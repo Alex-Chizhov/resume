@@ -1,23 +1,686 @@
 <div class="article-lead">
-  Как писать сценарии нагрузки на JavaScript в K6, измерять p95 latency и интегрировать пороги (thresholds) в GitHub Actions.
+  Grafana K6 — это один из самых быстрых, гибких и технологичных инструментов нагрузочного тестирования для QA-инженеров и SDET. Написанный на Go и использующий JavaScript-движок ECMAScript 6, K6 потребляет в десятки раз меньше системных ресурсов по сравнению с традиционной Java-классикой (JMeter, Gatling). В этом исчерпывающем руководстве для <strong>Linux-инфраструктуры</strong> мы пройдем полный путь: от тонкой настройки ядра Linux (kernel limits, sockets, ulimit) и написания чистых скриптов до разбора CLI-команд по группам задач, углубленной работы с логами (JSON, <code>jq</code>, <code>journalctl</code>, Grafana Loki) и развертывания распределенной (distributed) нагрузки через <strong>k6-operator в Kubernetes</strong> и <strong>Docker Compose</strong>.
 </div>
 
-<div class="article-section">
-  <h2>Введение в тему</h2>
-  <p>Обзор актуальных решений и подходов по теме <strong>Нагрузочное тестирование с K6: От простых скриптов к distributed-нагрузке</strong>.</p>
-  <p>В рамках обеспечения качества программного обеспечения грамотно выстроенный процесс позволяет минимизировать риски при релизе новой функциональности.</p>
+<!-- Table of Contents -->
+<div class="toc-container">
+  <div class="toc-title">📑 Оглавление статьи</div>
+  <div class="toc-grid">
+    
+    <div class="toc-section-block">
+      <span class="toc-section-label">Часть 1. Linux & Архитектура</span>
+      <ul class="toc-list">
+        <li><a href="#k6-intro">1. Почему K6 заменяет JMeter в Linux</a></li>
+        <li><a href="#k6-install">2. Установка K6 в Linux (Apt, Dnf, Docker)</a></li>
+        <li><a href="#k6-kernel-tuning">3. Тюнинг ядра Linux (ulimit, sysctl)</a></li>
+      </ul>
+    </div>
+
+    <div class="toc-section-block">
+      <span class="toc-section-label">Часть 2. Анатомия Скриптов</span>
+      <ul class="toc-list">
+        <li><a href="#k6-lifecycle">4. Жизненный цикл и VUs</a></li>
+        <li><a href="#k6-executors">5. Исполнители (Executors) и Сценарии</a></li>
+        <li><a href="#k6-checks-thresholds">6. Checks, Thresholds и Кастомные Метрики</a></li>
+        <li><a href="#k6-shared-array">7. Оптимизация RAM: SharedArray</a></li>
+      </ul>
+    </div>
+
+    <div class="toc-section-block">
+      <span class="toc-section-label">Часть 3. CLI Справочник</span>
+      <ul class="toc-list">
+        <li><a href="#k6-cli-exec">8. Группа 1: Управление запуском и VU</a></li>
+        <li><a href="#k6-cli-env">9. Группа 2: Переменные и Конфигурации</a></li>
+        <li><a href="#k6-cli-output">10. Группа 3: Экспорт метрик (TSDB / Cloud)</a></li>
+        <li><a href="#k6-cli-logging">11. Группа 4: Управление логами и консолью</a></li>
+        <li><a href="#k6-cli-utils">12. Группа 5: Инспектирование и Архивация</a></li>
+      </ul>
+    </div>
+
+    <div class="toc-section-block">
+      <span class="toc-section-label">Часть 4. Логи & Отладка</span>
+      <ul class="toc-list">
+        <li><a href="#k6-log-levels">13. Градация логов и HTTP Debugging</a></li>
+        <li><a href="#k6-json-jq">14. Обработка JSON-логов через jq в Linux</a></li>
+        <li><a href="#k6-systemd-loki">15. Интеграция с systemd, journalctl и Loki</a></li>
+      </ul>
+    </div>
+
+    <div class="toc-section-block">
+      <span class="toc-section-label">Часть 5. Distributed & QA Best Practices</span>
+      <ul class="toc-list">
+        <li><a href="#k6-distributed-intro">16. Зачем нужна распределенная нагрузка</a></li>
+        <li><a href="#k6-k8s-operator">17. Развертывание k6-operator в Kubernetes</a></li>
+        <li><a href="#k6-sharding">18. Ручное шардирование (execution-segment)</a></li>
+        <li><a href="#k6-qa-checklist">19. Антипаттерны и Сводный Чек-лист QA</a></li>
+      </ul>
+    </div>
+
+  </div>
 </div>
 
+<!-- SECTION 1 -->
 <div class="article-section">
-  <h2>Ключевые аспекты и нюансы</h2>
-  <ul>
-    <li>Практическая настройка окружения и зависимостей.</li>
-    <li>Интеграция с CI/CD пайплайном и генерация отчетов.</li>
-    <li>Масштабирование тестовых наборов и оптимизация времени выполнения.</li>
-  </ul>
+  <h2 id="k6-intro">Часть 1. Введение и подготовка Linux-окружения</h2>
+  <p>Долгое время стандартом индустрии нагрузочного тестирования оставался Apache JMeter. Однако в эпоху микросервисной архитектуры и CI/CD-пайплайнов на Linux проявились его фундаментальные недостатки: высокая прожорливость по оперативной памяти из-за выделения отдельного потока ОС (OS Thread) на каждого виртуального пользователя (VU), громоздкие XML-файлы сценариев и тяжелая JVM-инфраструктура.</p>
+
+  <p><strong>Grafana K6</strong> кардинально меняет правила игры. Написанный на языке <strong>Go</strong>, K6 использует лёгкие сопрограммы (goroutines). На одной Linux-машине с 4 ядрами CPU и 8 ГБ RAM K6 способен генерировать нагрузку в <strong>30 000 – 50 000 параллельных VU</strong>, тогда как JMeter упирается в лимиты уже при 3 000 - 5 000 VU.</p>
+
+  <table style="width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 14px; text-align: left;">
+    <thead>
+      <tr style="border-bottom: 2px solid var(--border-color); background: var(--bg-surface);">
+        <th style="padding: 12px; color: var(--accent-cyan);">Критерий</th>
+        <th style="padding: 12px; color: var(--accent-rose);">Apache JMeter</th>
+        <th style="padding: 12px; color: var(--accent-emerald);">Grafana K6</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 10px; font-weight: 600;">Архитектура генератора</td>
+        <td style="padding: 10px;">1 Thread = 1 VU (Тяжелые потоки JVM)</td>
+        <td style="padding: 10px;">Go Goroutines (Мультиплексирование тысячи VU на 1 поток)</td>
+      </tr>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 10px; font-weight: 600;">Потребление RAM на 1 000 VU</td>
+        <td style="padding: 10px;">~ 2.5 ГБ – 5 ГБ</td>
+        <td style="padding: 10px;">~ 100 МБ – 300 МБ</td>
+      </tr>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 10px; font-weight: 600;">Язык описания тестов</td>
+        <td style="padding: 10px;">GUI / XML (.jmx)</td>
+        <td style="padding: 10px;">JavaScript ES6+ / TypeScript</td>
+      </tr>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 10px; font-weight: 600;">Нативная интеграция с Linux & CI</td>
+        <td style="padding: 10px;">Сложная (требует установку Java, GUI экспорты)</td>
+        <td style="padding: 10px;">Идеальная (Одиночный бинарник CLI, вывод вstdout/JSON)</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3 id="k6-install">Установка K6 в Linux (Debian/Ubuntu, RHEL/CentOS, Docker)</h3>
+  <p>В отличие от других инструментов, K6 не имеет сторонних зависимостей. Вы можете установить его несколькими способами:</p>
+
+  <div class="code-window">
+    <div class="code-window-header">
+      <div class="window-dots">
+        <span class="dot dot-red"></span>
+        <span class="dot dot-yellow"></span>
+        <span class="dot dot-green"></span>
+      </div>
+      <span class="window-filename">install_k6_linux.sh</span>
+    </div>
+    <pre><code class="language-bash"># === Вариант 1: Ubuntu / Debian (Официальный APT репозиторий) ===
+sudo gpg -k
+sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+sudo apt-get update
+sudo apt-get install -y k6
+
+# === Вариант 2: RHEL / Fedora / CentOS (DNF / YUM) ===
+sudo dnf install https://dl.k6.io/rpm/repo.rpm
+sudo dnf install -y k6
+
+# === Вариант 3: Docker (Запуск без установки в ОС) ===
+docker run --rm -i grafana/k6 run - <script.js</code></pre>
+  </div>
+
+  <h3 id="k6-kernel-tuning">Подготовка ядра Linux под High-Load (Kernel & Socket Tuning)</h3>
+  <p>При сгенерированной нагрузке в десятки тысяч запросов в секунду (RPS) неопытные QA-инженеры часто сталкиваются с ошибками вида <code>dial tcp: lookup ... socket: too many open files</code> или <code>bind: address already in use</code>. Это происходит не из-за падения тестируемого сервиса, а из-за <strong>ограничений по умолчанию в самой Linux ОС</strong>.</p>
+
+  <div style="background: rgba(239, 68, 68, 0.1); border-left: 4px solid var(--accent-rose); padding: 14px 18px; border-radius: 0 8px 8px 0; margin: 20px 0; font-size: 15px;">
+    <strong style="color: var(--accent-rose);">⚠️ Критический шаг перед тестированием:</strong> Обязательно настройте лимиты открытых дескрипторов файлов и параметры сетевых сокетов TCP на генераторе нагрузки Linux.
+  </div>
+
+  <div class="code-window">
+    <div class="code-window-header">
+      <div class="window-dots">
+        <span class="dot dot-red"></span>
+        <span class="dot dot-yellow"></span>
+        <span class="dot dot-green"></span>
+      </div>
+      <span class="window-filename">sysctl_limits_tuning.sh</span>
+    </div>
+    <pre><code class="language-bash"># 1. Увеличение лимита открытых файлов (файловых дескрипторов) для текущей сессии
+ulimit -n 65535
+
+# 2. Постоянное добавление лимитов в /etc/security/limits.conf
+sudo bash -c 'cat >> /etc/security/limits.conf <<EOF
+* soft nofile 65535
+* hard nofile 65535
+root soft nofile 65535
+root hard nofile 65535
+EOF'
+
+# 3. Оптимизация стека TCP в /etc/sysctl.conf
+sudo bash -c 'cat >> /etc/sysctl.conf <<EOF
+# Расширяем диапазон локальных портов для исходящих TCP-соединений
+net.ipv4.ip_local_port_range = 1024 65535
+# Разрешаем повторное использование сокетов в состоянии TIME_WAIT
+net.ipv4.tcp_tw_reuse = 1
+# Увеличиваем очередь сокетов на подключение
+net.core.somaxconn = 65535
+# Максимальное количество сокетов TIME_WAIT
+net.ipv4.tcp_max_tw_buckets = 1440000
+EOF'
+
+# Применяем настройки ядра без перезагрузки Linux
+sudo sysctl -p</code></pre>
+  </div>
 </div>
 
+<!-- SECTION 2 -->
 <div class="article-section">
+  <h2 id="k6-lifecycle">Часть 2. Анатомия профессионального скрипта K6</h2>
+  <p>Скрипт K6 — это чистый JavaScript-модуль. Жизненный цикл выполнения любого теста состоит из 4 четких стадий:</p>
+
+  <ol style="margin-left: 20px; line-height: 1.8;">
+    <li><strong>Init Stage (Инициализация):</strong> Загрузка внешних файлов, импорт библиотек, объявление опций конфигурации (выполняется 1 раз при старте).</li>
+    <li><strong>Setup Stage (Подготовка):</strong> Выполняется 1 раз перед началом подачи нагрузки (например, авторизация под админом, получение токена, сидинг БД).</li>
+    <li><strong>VU Stage (Основной цикл):</strong> Код внутри функции по умолчанию <code>export default function(data)</code>. Постоянно исполняется виртуальными пользователями в параллельных потоках.</li>
+    <li><strong>Teardown Stage (Очистка):</strong> Выполняется 1 раз после завершения нагрузки (удаление тестовых данных, очистка сессий).</li>
+  </ol>
+
+  <h3 id="k6-executors">Исполнители (Executors) и Сценарии нагрузки</h3>
+  <p>K6 поддерживает модель с открытым (Open Model) и закрытым (Closed Model) контуром. Вы можете точечно контролировать профиль подачи нагрузки с помощью <code>scenarios</code> и различных <code>executor</code>-ов.</p>
+
+  <div class="code-window">
+    <div class="code-window-header">
+      <div class="window-dots">
+        <span class="dot dot-red"></span>
+        <span class="dot dot-yellow"></span>
+        <span class="dot dot-green"></span>
+      </div>
+      <span class="window-filename">load_test_scenario.js</span>
+    </div>
+    <pre><code class="language-javascript">import http from 'k6/http';
+import { check, sleep } from 'k6';
+import { Trend, Counter } from 'k6/metrics';
+
+// === КАСТОМНЫЕ МЕТРИКИ ===
+const apiLatency = new Trend('custom_api_latency');
+const failedRequests = new Counter('custom_failed_requests');
+
+// === КОНФИГУРАЦИЯ СЦЕНАРИЕВ И ПОРОГОВ (THRESHOLDS) ===
+export const options = {
+  scenarios: {
+    // Сценарий 1: Плавное нарастание VU (Ramping VUs)
+    ramp_up_profile: {
+      executor: 'ramping-vus',
+      startVUs: 0,
+      stages: [
+        { duration: '30s', target: 50 },  // Разгон до 50 VU
+        { duration: '2m',  target: 50 },  // Полка нагрузки
+        { duration: '30s', target: 0 },   // Снижение нагрузки
+      ],
+      gracefulRampDown: '10s',
+    },
+    // Сценарий 2: Постоянный генератор RPS (Constant Arrival Rate)
+    constant_rps_profile: {
+      executor: 'constant-arrival-rate',
+      rate: 200,                  // 200 запросов в секунду (RPS)
+      timeUnit: '1s',
+      duration: '3m',
+      preAllocatedVUs: 100,       // Предварительно выделенные VU
+      maxVUs: 500,                // Максимальный предел VU при замедлении ответа
+      startTime: '3m',            // Старт после окончания первого сценария
+    },
+  },
+
+  // === ПОРОГИ И SLA (THRESHOLDS) ===
+  thresholds: {
+    // 95% запросов должны выполняться быстрее 200мс, 99% - быстрее 500мс
+    http_req_duration: ['p(95)<200', 'p(99)<500'],
+    // Процент ошибок должен быть менее 1%
+    http_req_failed: ['rate<0.01'],
+    // Кастомный чек: утилизация ошибок
+    'custom_failed_requests': ['count<10'],
+  },
+};
+
+// === SETUP (Подготовка перед нагрузкой) ===
+export function setup() {
+  const res = http.post('https://api.staging.example.com/v1/auth', JSON.stringify({
+    username: 'qa_load_user',
+    password: 'secure_password_123',
+  }), { headers: { 'Content-Type': 'application/json' } });
+
+  return { token: res.json('token') };
+}
+
+// === VU STAGE (Основной итерационный цикл) ===
+export default function (data) {
+  const params = {
+    headers: {
+      'Authorization': `Bearer ${data.token}`,
+      'Content-Type': 'application/json',
+    },
+  };
+
+  const res = http.get('https://api.staging.example.com/v1/products', params);
+
+  // Кастомная фиксация метрик
+  apiLatency.add(res.timings.duration);
+
+  // Валидация ответа (Checks)
+  const isSuccess = check(res, {
+    'status is 200': (r) => r.status === 200,
+    'body has products': (r) => r.json().hasOwnProperty('products'),
+    'response time < 300ms': (r) => r.timings.duration < 300,
+  });
+
+  if (!isSuccess) {
+    failedRequests.add(1);
+  }
+
+  // Эмуляция паузы пользователя (Pacing / Think Time)
+  sleep(1);
+}
+
+// === TEARDOWN (Очистка после теста) ===
+export function teardown(data) {
+  console.log(`[TEARDOWN] Тест завершен. Использовался токен: ${data.token.slice(0, 10)}...`);
+}</code></pre>
+  </div>
+
+  <h3 id="k6-shared-array">Оптимизация памяти при работе с тестовыми данными: SharedArray</h3>
+  <p>При тестировании авторизации или поиска вам понадобятся тысячи уникальных учетных записей или ID товаров из JSON/CSV файлов. Если просто использовать <code>JSON.parse(open('./data.json'))</code>, K6 скопирует весь массив в оперативную память <strong>для каждого VU</strong>. При 10 000 VU файл на 10 МБ займет 100 ГБ RAM!</p>
+
+  <p>Решение — использование <code>SharedArray</code> из библиотеки <code>k6/data</code>. Он помещает данные в единую разделяемую область памяти Linux-процесса с доступом только на чтение (read-only).</p>
+
+  <div class="code-window">
+    <div class="code-window-header">
+      <div class="window-dots">
+        <span class="dot dot-red"></span>
+        <span class="dot dot-yellow"></span>
+        <span class="dot dot-green"></span>
+      </div>
+      <span class="window-filename">shared_array_demo.js</span>
+    </div>
+    <pre><code class="language-javascript">import { SharedArray } from 'k6/data';
+import http from 'k6/http';
+
+// Память выделяется 1 раз для всего процесса K6 в Linux!
+const usersData = new SharedArray('users dataset', function () {
+  return JSON.parse(open('./large_users_list.json'));
+});
+
+export default function () {
+  // Получаем уникального пользователя по номеру виртуального пользователя (vu.idInTest)
+  const user = usersData[__VU % usersData.length];
+  
+  http.post('https://api.staging.example.com/login', JSON.stringify({
+    email: user.email,
+    password: user.password,
+  }));
+}</code></pre>
+  </div>
+</div>
+
+<!-- SECTION 3 -->
+<div class="article-section">
+  <h2 id="k6-cli-reference">Часть 3. Справочник команд K6 по группам задач (CLI Reference)</h2>
+  <p>Командная строка K6 в Linux предоставляет колоссальные возможности для гибкого переопределения параметров запуска без необходимости редактирования исходного кода скрипта. Ниже представлена полная шпаргалка, сгруппированная по задачам QA-инженера.</p>
+
+  <!-- Group 1 -->
+  <h3 id="k6-cli-exec">Группа 1: Управление запуском, виртуальными пользователями и профилем</h3>
+  <table style="width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px; text-align: left;">
+    <thead>
+      <tr style="border-bottom: 2px solid var(--border-color); background: var(--bg-surface);">
+        <th style="padding: 10px; color: var(--accent-cyan);">Команда / Флаг</th>
+        <th style="padding: 10px; color: var(--accent-emerald);">Описание и Назначение</th>
+        <th style="padding: 10px; color: var(--accent-rose);">Пример вызова в Linux Terminal</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 8px; font-family: monospace;">k6 run</td>
+        <td style="padding: 8px;">Базовый запуск скрипта нагрузочного теста</td>
+        <td style="padding: 8px; font-family: monospace;">k6 run script.js</td>
+      </tr>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 8px; font-family: monospace;">--vus, -u</td>
+        <td style="padding: 8px;">Количество параллельных виртуальных пользователей (VU)</td>
+        <td style="padding: 8px; font-family: monospace;">k6 run --vus 100 script.js</td>
+      </tr>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 8px; font-family: monospace;">--duration, -d</td>
+        <td style="padding: 8px;">Общая продолжительность теста (s, m, h)</td>
+        <td style="padding: 8px; font-family: monospace;">k6 run -u 50 --duration 10m script.js</td>
+      </tr>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 8px; font-family: monospace;">--stage, -s</td>
+        <td style="padding: 8px;">Задание ступенчатой нагрузки (Ramping Profile) прямо из CLI</td>
+        <td style="padding: 8px; font-family: monospace;">k6 run -s 1m:50 -s 5m:50 -s 1m:0 script.js</td>
+      </tr>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 8px; font-family: monospace;">--iterations, -i</td>
+        <td style="padding: 8px;">Фиксированное суммарное число итераций выполнения</td>
+        <td style="padding: 8px; font-family: monospace;">k6 run -u 10 --iterations 500 script.js</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- Group 2 -->
+  <h3 id="k6-cli-env">Группа 2: Переопределение конфигураций и переменные окружения</h3>
+  <table style="width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px; text-align: left;">
+    <thead>
+      <tr style="border-bottom: 2px solid var(--border-color); background: var(--bg-surface);">
+        <th style="padding: 10px; color: var(--accent-cyan);">Команда / Флаг</th>
+        <th style="padding: 10px; color: var(--accent-emerald);">Описание и Назначение</th>
+        <th style="padding: 10px; color: var(--accent-rose);">Пример вызова в Linux Terminal</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 8px; font-family: monospace;">-e, --env KEY=VAL</td>
+        <td style="padding: 8px;">Передача пользовательских переменных в `__ENV` скрипта</td>
+        <td style="padding: 8px; font-family: monospace;">k6 run -e TARGET_URL=https://api.test.com script.js</td>
+      </tr>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 8px; font-family: monospace;">--config, -c</td>
+        <td style="padding: 8px;">Подключение внешнего JSON-файла с опциями K6</td>
+        <td style="padding: 8px; font-family: monospace;">k6 run --config ./config.json script.js</td>
+      </tr>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 8px; font-family: monospace;">--no-thresholds</td>
+        <td style="padding: 8px;">Отключение проверки порогов SLA (для отладки)</td>
+        <td style="padding: 8px; font-family: monospace;">k6 run --no-thresholds script.js</td>
+      </tr>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 8px; font-family: monospace;">--summary-export</td>
+        <td style="padding: 8px;">Сохранение итогового резюме теста в JSON-файл</td>
+        <td style="padding: 8px; font-family: monospace;">k6 run --summary-export=summary.json script.js</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- Group 3 -->
+  <h3 id="k6-cli-output">Группа 3: Экспорт метрик в БД и системы мониторинга (TSDB)</h3>
+  <table style="width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px; text-align: left;">
+    <thead>
+      <tr style="border-bottom: 2px solid var(--border-color); background: var(--bg-surface);">
+        <th style="padding: 10px; color: var(--accent-cyan);">Команда / Флаг</th>
+        <th style="padding: 10px; color: var(--accent-emerald);">Описание и Назначение</th>
+        <th style="padding: 10px; color: var(--accent-rose);">Пример вызова в Linux Terminal</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 8px; font-family: monospace;">--out json=file.json</td>
+        <td style="padding: 8px;">Экспорт абсолютно всех точек измерений метрик в JSON</td>
+        <td style="padding: 8px; font-family: monospace;">k6 run --out json=raw_metrics.json script.js</td>
+      </tr>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 8px; font-family: monospace;">--out influxdb=...</td>
+        <td style="padding: 8px;">Прямой стриминг метрик в базе времени InfluxDB v1/v2</td>
+        <td style="padding: 8px; font-family: monospace;">k6 run --out influxdb=http://localhost:8086/k6db script.js</td>
+      </tr>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 8px; font-family: monospace;">--out prometheus-rw</td>
+        <td style="padding: 8px;">Экспорт в Prometheus через Remote Write API</td>
+        <td style="padding: 8px; font-family: monospace;">k6 run --out experimental-prometheus-rw script.js</td>
+      </tr>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 8px; font-family: monospace;">--out cloud</td>
+        <td style="padding: 8px;">Отправка метрик в Grafana Cloud dashboard</td>
+        <td style="padding: 8px; font-family: monospace;">k6 run --out cloud script.js</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- Group 4 -->
+  <h3 id="k6-cli-logging">Группа 4: Управление логами и консольным выводом</h3>
+  <table style="width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px; text-align: left;">
+    <thead>
+      <tr style="border-bottom: 2px solid var(--border-color); background: var(--bg-surface);">
+        <th style="padding: 10px; color: var(--accent-cyan);">Команда / Флаг</th>
+        <th style="padding: 10px; color: var(--accent-emerald);">Описание и Назначение</th>
+        <th style="padding: 10px; color: var(--accent-rose);">Пример вызова в Linux Terminal</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 8px; font-family: monospace;">--verbose, -v</td>
+        <td style="padding: 8px;">Включение подробных отладочных сообщений</td>
+        <td style="padding: 8px; font-family: monospace;">k6 run --verbose script.js</td>
+      </tr>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 8px; font-family: monospace;">--http-debug=full</td>
+        <td style="padding: 8px;">Дамп всех сетевых HTTP запросов и ответов (headers/body)</td>
+        <td style="padding: 8px; font-family: monospace;">k6 run --http-debug=full script.js</td>
+      </tr>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 8px; font-family: monospace;">--log-format=json</td>
+        <td style="padding: 8px;">Форматирование внутренних логов K6 в структурированный JSON</td>
+        <td style="padding: 8px; font-family: monospace;">k6 run --log-format=json script.js</td>
+      </tr>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 8px; font-family: monospace;">--log-output=file=...</td>
+        <td style="padding: 8px;">Запись системных логов напрямую в файл без stdout</td>
+        <td style="padding: 8px; font-family: monospace;">k6 run --log-output=file=execution.log script.js</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- Group 5 -->
+  <h3 id="k6-cli-utils">Группа 5: Инспектирование, архивация и утилиты K6</h3>
+  <table style="width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px; text-align: left;">
+    <thead>
+      <tr style="border-bottom: 2px solid var(--border-color); background: var(--bg-surface);">
+        <th style="padding: 10px; color: var(--accent-cyan);">Команда / Флаг</th>
+        <th style="padding: 10px; color: var(--accent-emerald);">Описание и Назначение</th>
+        <th style="padding: 10px; color: var(--accent-rose);">Пример вызова в Linux Terminal</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 8px; font-family: monospace;">k6 inspect</td>
+        <td style="padding: 8px;">Анализ скрипта на синтаксис, сценарии и пороги без запуска</td>
+        <td style="padding: 8px; font-family: monospace;">k6 inspect script.js</td>
+      </tr>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 8px; font-family: monospace;">k6 archive</td>
+        <td style="padding: 8px;">Упаковка скрипта и всех импортируемых файлов в tar.gz архив</td>
+        <td style="padding: 8px; font-family: monospace;">k6 archive script.js -o test_bundle.tar.gz</td>
+      </tr>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 8px; font-family: monospace;">k6 run test_bundle.tar.gz</td>
+        <td style="padding: 8px;">Запуск предварительно заархивированного пакета теста</td>
+        <td style="padding: 8px; font-family: monospace;">k6 run test_bundle.tar.gz</td>
+      </tr>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 8px; font-family: monospace;">k6 version</td>
+        <td style="padding: 8px;">Вывод версии K6 и архитектуры сборки Linux</td>
+        <td style="padding: 8px; font-family: monospace;">k6 version</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- SECTION 4 -->
+<div class="article-section">
+  <h2 id="k6-log-levels">Часть 4. Логирование, трассировка и отладка на Linux</h2>
+  <p>При поиске багов или нестабильного поведения системы (flaky errors) под высокой нагрузкой правильная настройка логирования K6 в Linux становится определяющим фактором успеха QA-инженера.</p>
+
+  <h3 id="k6-http-debug">Глубокая трассировка HTTP-запросов (`--http-debug`)</h3>
+  <p>Флаг <code>--http-debug=full</code> выводит абсолютно весь трафик, отправляемый K6 и возвращаемый сервером (включая заголовки, тела ответов, куки и статус-коды). Чтобы не забивать консоль при тысячах VU, его применяют совместно с ограничением VU=1 и итераций=1.</p>
+
+  <div class="code-window">
+    <div class="code-window-header">
+      <div class="window-dots">
+        <span class="dot dot-red"></span>
+        <span class="dot dot-yellow"></span>
+        <span class="dot dot-green"></span>
+      </div>
+      <span class="window-filename">debug_single_request.sh</span>
+    </div>
+    <pre><code class="language-bash"># Запуск 1 итерации с полным трассировочным дампом в файл debug.log
+k6 run --vus 1 --iterations 1 --http-debug=full script.js > debug.log 2>&1
+
+# Просмотр отправленных заголовков HTTP в Linux
+grep -A 10 "HTTP/1.1" debug.log</code></pre>
+  </div>
+
+  <h3 id="k6-json-jq">Обработка JSON-логов K6 через консольные утилиты Linux (`jq`, `grep`)</h3>
+  <p>При передаче флага <code>--log-format=json</code> K6 генерирует лог-записи в строгом формате JSON Lines. Это позволяет мгновенно фильтровать падения прямо в терминале Linux с помощью утилиты <code>jq</code>.</p>
+
+  <div class="code-window">
+    <div class="code-window-header">
+      <div class="window-dots">
+        <span class="dot dot-red"></span>
+        <span class="dot dot-yellow"></span>
+        <span class="dot dot-green"></span>
+      </div>
+      <span class="window-filename">parse_k6_logs_jq.sh</span>
+    </div>
+    <pre><code class="language-bash"># 1. Запуск теста с выводом логов в файл
+k6 run --log-format=json --log-output=file=k6_run.json script.js
+
+# 2. Извлечение только ошибок (level == "error")
+cat k6_run.json | jq 'select(.level=="error")'
+
+# 3. Подсчет количества ошибок по типам и сообщениям
+cat k6_run.json | jq -r 'select(.level=="error") | .msg' | sort | uniq -c
+
+# 4. Поиск конкретной ошибки HTTP 500 для конкретного VU (например, VU #42)
+cat k6_run.json | jq 'select(.vu==42 and .level=="error")'</code></pre>
+  </div>
+
+  <h3 id="k6-systemd-loki">Автоматизация запуска через systemd и сбор логов в Grafana Loki</h3>
+  <p>Для запуска ночных регулярных нагрузочных тестов (Nightly Soak Testing) в Linux удобно обернуть запуск K6 в <strong>systemd service</strong>. Это гарантирует перезапуск при сбоях, ограничение ресурсов через cgroups и автоматическое сохранение логов в <code>journalctl</code>.</p>
+
+  <div class="code-window">
+    <div class="code-window-header">
+      <div class="window-dots">
+        <span class="dot dot-red"></span>
+        <span class="dot dot-yellow"></span>
+        <span class="dot dot-green"></span>
+      </div>
+      <span class="window-filename">/etc/systemd/system/k6-nightly-soak.service</span>
+    </div>
+    <pre><code class="language-ini">[Unit]
+Description=K6 Nightly Soak Load Test
+After=network.target
+
+[Service]
+Type=oneshot
+User=qa_automation
+WorkingDirectory=/opt/k6-tests
+ExecStart=/usr/bin/k6 run --config /opt/k6-tests/soak_config.json --log-format=json /opt/k6-tests/soak_test.js
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target</code></pre>
+  </div>
+
+  <p>Просмотр логов выполненного теста через <code>journalctl</code>:</p>
+  <div class="code-window">
+    <div class="code-window-header">
+      <div class="window-dots">
+        <span class="dot dot-red"></span>
+        <span class="dot dot-yellow"></span>
+        <span class="dot dot-green"></span>
+      </div>
+      <span class="window-filename">journalctl_k6.sh</span>
+    </div>
+    <pre><code class="language-bash"># Просмотр логов сервиса K6 в реальном времени с форматированием JSON
+sudo journalctl -u k6-nightly-soak.service -f -o cat | jq .</code></pre>
+  </div>
+
+  <div style="background: rgba(16, 185, 129, 0.1); border-left: 4px solid var(--accent-emerald); padding: 14px 18px; border-radius: 0 8px 8px 0; margin: 20px 0; font-size: 15px;">
+    <strong style="color: var(--accent-emerald);">💡 Корреляция метрик и логов (Log-Metric Correlation):</strong> Отправляя структурированные JSON-логи K6 через Promtail в Grafana Loki, вы можете на одном дашборде Grafana совместить график роста latency (p95) с конкретными строками логов приложений и ошибками базы данных в тот же квант времени.
+  </div>
+</div>
+
+<!-- SECTION 5 -->
+<div class="article-section">
+  <h2 id="k6-distributed-intro">Часть 5. Распределенное нагрузочное тестирование (Distributed Load)</h2>
+  <p>Несмотря на высокую эффективнсть K6, одна физическая или виртуальная машина на Linux имеет аппаратные ограничения по <strong>пропускной способности сетевой карты (NIC Bandwidth Limit)</strong>, CPU и памяти. Если вашей целью является генерация 100 000+ RPS или 500 000 VU, вам потребуется <strong>распределенное нагрузочное тестирование (Distributed Load Testing)</strong>.</p>
+
+  <h3 id="k6-k8s-operator">Развертывание k6-operator в Kubernetes кластере</h3>
+  <p>Самым современным и нативным способом распределенной нагрузки является использование официального <strong>k6-operator</strong> для Kubernetes. Оператор считывает пользовательский манифест Custom Resource Definition (CRD), автоматически разделяет нагрузку между N нодами-раннерами (Runner Pods), запускает их одновременно и агрегирует метрики в единый запуск.</p>
+
+  <div class="code-window">
+    <div class="code-window-header">
+      <div class="window-dots">
+        <span class="dot dot-red"></span>
+        <span class="dot dot-yellow"></span>
+        <span class="dot dot-green"></span>
+      </div>
+      <span class="window-filename">k6_distributed_cr.yaml</span>
+    </div>
+    <pre><code class="language-yaml">apiVersion: k6.io/v1alpha1
+kind: K6
+metadata:
+  name: distributed-k6-soak-test
+  namespace: qa-load-testing
+spec:
+  parallelism: 5  # Разворачивает 5 параллельных Runner Pods на разных нодах Linux!
+  script:
+    configMap:
+      name: k6-test-scripts
+      file: load_test.js
+  arguments: --out influxdb=http://influxdb.qa-load-testing:8086/k6db --log-format=json
+  runner:
+    resources:
+      limits:
+        cpu: "2"
+        memory: "2Gi"
+      requests:
+        cpu: "1"
+        memory: "1Gi"</code></pre>
+  </div>
+
+  <h3 id="k6-sharding">Ручное шардирование генераторов нагрузки на Linux VDS (Execution Segments)</h3>
+  <p>Если у вас нет Kubernetes, вы можете развернуть распределенную нагрузку на нескольких изолированных Linux-серверах с помощью флага <code>--execution-segment</code>.</p>
+
+  <div class="code-window">
+    <div class="code-window-header">
+      <div class="window-dots">
+        <span class="dot dot-red"></span>
+        <span class="dot dot-yellow"></span>
+        <span class="dot dot-green"></span>
+      </div>
+      <span class="window-filename">manual_distributed_sharding.sh</span>
+    </div>
+    <pre><code class="language-bash"># Сервер 1 (Linux Node 1): Берет на себя первую треть (0% - 33%) нагрузки
+k6 run --execution-segment '0:1/3' --execution-segment-sequence '0,1/3,2/3,1' --out influxdb=http://central-influx:8086/k6 script.js
+
+# Сервер 2 (Linux Node 2): Берет на себя вторую треть (33% - 66%) нагрузки
+k6 run --execution-segment '1/3:2/3' --execution-segment-sequence '0,1/3,2/3,1' --out influxdb=http://central-influx:8086/k6 script.js
+
+# Сервер 3 (Linux Node 3): Берет на себя финальную треть (66% - 100%) нагрузки
+k6 run --execution-segment '2/3:1' --execution-segment-sequence '0,1/3,2/3,1' --out influxdb=http://central-influx:8086/k6 script.js</code></pre>
+  </div>
+</div>
+
+<!-- SECTION 6 -->
+<div class="article-section">
+  <h2 id="k6-best-practices">Часть 6. SEO-оптимизация, антипаттерны QA и чек-лист готовности</h2>
+
+  <h3>Топ-5 Антипаттернов QA-инженера при нагрузочном тестировании</h3>
+  <ol style="margin-left: 20px; line-height: 1.8;">
+    <li><strong>Отсутствие Pacing / Sleep между запросами:</strong> Виртуальные пользователи генерируют бешеные нереалистичные запросы в бесконечном цикле без паузы, что превращает тест в DDOS-атаку, а не эмуляцию поведения реальных клиентов.</li>
+    <li><strong>Логирование каждого успешного HTTP-запроса:</strong> Запись строк на каждый `200 OK` при 20 000 RPS мгновенно переполняет дисковый I/O на Linux-генераторе и приводит к деградации производительности самого K6.</li>
+    <li><strong>Ненастроенные лимиты системы (`ulimit`):</strong> Падение теста на половине профиля из-за исчерпания файловых дескрипторов.</li>
+    <li><strong>Использование внешних библиотек Node.js без сборки:</strong> K6 — это не Node.js. В нем нет глобального объекта `process` или встроенных модулей типа `fs` или `path`.</li>
+    <li><strong>Оценка производительности по средней медиане (Average Latency):</strong> Оценка качества по среднему арифметическому врет. Всегда используйте <strong>p95, p99 перцентили</strong> и стандартное отклонение.</li>
+  </ol>
+
+  <h3>📋 Чек-лист готовности Linux-среды к нагрузочному тестированию</h3>
+  <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 8px; padding: 18px; margin: 20px 0;">
+    <ul style="list-style: none; padding: 0;">
+      <li style="margin-bottom: 10px;">☑️ Проверен и повышен лимит файловых дескрипторов (<code>ulimit -n 65535</code>).</li>
+      <li style="margin-bottom: 10px;">☑️ Проведена настройка параметров ядра TCP (<code>net.ipv4.ip_local_port_range</code>, <code>tcp_tw_reuse</code>).</li>
+      <li style="margin-bottom: 10px;">☑️ Настроены пороги SLA (<code>thresholds</code>) по 95% и 99% перцентилям отклика.</li>
+      <li style="margin-bottom: 10px;">☑️ Большие датасеты переведены на использование <code>SharedArray</code> для экономии RAM.</li>
+      <li style="margin-bottom: 10px;">☑️ Логирование переведено в формат JSON (<code>--log-format=json</code>) и подключен анализ ошибок через <code>jq</code> или Grafana Loki.</li>
+      <li style="margin-bottom: 10px;">☑️ Подготовлена база временных рядов (InfluxDB / Prometheus) и панель Grafana для мониторинга ресурсов сервера в реальном времени.</li>
+    </ul>
+  </div>
+
   <h2>Заключение</h2>
-  <p>Подводя итог, внедрение лучших практик для <em>Нагрузочное тестирование с K6: От простых скриптов к distributed-нагрузке</em> повышает стабильность вашего продукта и ускоряет обратную связь.</p>
+  <p>Переход на <strong>Grafana K6 в Linux-инфраструктуре</strong> позволяет QA-командам выстроить прозрачный, масштабируемый и невероятно быстрый процесс нагрузочного тестирования. Благодаря единому бинарнику, интеграции с CI/CD пайплайнами, гибкой системе логирования и поддержке распределенного запуска через <code>k6-operator</code>, K6 заслуженно занимает место главного инструмента в арсенале современного SDET и Performance-инженера.</p>
 </div>

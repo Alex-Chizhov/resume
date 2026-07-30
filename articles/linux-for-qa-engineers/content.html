@@ -1,0 +1,541 @@
+<div class="article-lead">
+  В современной IT-индустрии знание ОС Linux стало фундаментальным требованием для QA-инженера и SDET любого уровня. Тестовые стенды, микросервисы, Docker-контейнеры, CI/CD пайплайны (GitLab CI, GitHub Actions) и нагрузочные генераторы работают на базе Linux. Способность быстро подключиться к серверу по SSH, локализовать баг в логах бэкенда, проверить сетевые сокеты или протестировать REST API прямо из терминала выделяет сильного специалиста. В этом исчерпывающем руководстве мы разберем более 50 ключевых CLI-команд по группам задач, изучим продвинутый анализ логов (<code>grep</code>, <code>journalctl</code>, <code>jq</code>, <code>zgrep</code>) и разберем реальные сценарии локализации дефектов.
+</div>
+
+<!-- Table of Contents -->
+<div class="toc-container">
+  <div class="toc-title">📑 Оглавление статьи</div>
+  <div class="toc-grid">
+    
+    <div class="toc-section-block">
+      <span class="toc-section-label">Часть 1. Введение</span>
+      <ul class="toc-list">
+        <li><a href="#linux-intro">1. Зачем QA-инженеру знание Linux</a></li>
+        <li><a href="#linux-structure">2. Структура файловой системы Linux</a></li>
+      </ul>
+    </div>
+
+    <div class="toc-section-block">
+      <span class="toc-section-label">Часть 2. Справочник Команд</span>
+      <ul class="toc-list">
+        <li><a href="#cli-files">3. Группа 1: Навигация и Файлы</a></li>
+        <li><a href="#cli-text">4. Группа 2: Просмотр и Поиск</a></li>
+        <li><a href="#cli-system">5. Группа 3: Процессы и Ресурсы</a></li>
+        <li><a href="#cli-network">6. Группа 4: Сеть и REST API (curl)</a></li>
+        <li><a href="#cli-permissions">7. Группа 5: Права доступа и SSH</a></li>
+      </ul>
+    </div>
+
+    <div class="toc-section-block">
+      <span class="toc-section-label">Часть 3. Работа с Логами</span>
+      <ul class="toc-list">
+        <li><a href="#logs-anatomy">8. Где лежат логи (/var/log, Docker)</a></li>
+        <li><a href="#logs-realtime">9. Мониторинг в реальном времени</a></li>
+        <li><a href="#logs-grep-zgrep">10. Поиск: grep, egrep и zgrep</a></li>
+        <li><a href="#logs-jq-json">11. Парсинг JSON-логов через jq</a></li>
+        <li><a href="#logs-journalctl">12. Системные логи: journalctl</a></li>
+      </ul>
+    </div>
+
+    <div class="toc-section-block">
+      <span class="toc-section-label">Часть 4. Практические Сценарии</span>
+      <ul class="toc-list">
+        <li><a href="#qa-scenario-500">13. Поиск 500 ошибок в бэкенде</a></li>
+        <li><a href="#qa-scenario-ports">14. Диагностика занятых портов</a></li>
+        <li><a href="#qa-scenario-scp">15. Передача файлов по SCP / Rsync</a></li>
+      </ul>
+    </div>
+
+    <div class="toc-section-block">
+      <span class="toc-section-label">Часть 5. Чек-лист QA</span>
+      <ul class="toc-list">
+        <li><a href="#linux-antipatterns">16. Частые ошибки новичков</a></li>
+        <li><a href="#linux-checklist">17. Шпаргалка и Чек-лист QA</a></li>
+      </ul>
+    </div>
+
+  </div>
+</div>
+
+<!-- SECTION 1 -->
+<div class="article-section">
+  <h2 id="linux-intro">Часть 1. Введение: Зачем QA-инженеру знание Linux</h2>
+  <p>При тестировании веб-приложений и микросервисов эпоха простых графических интерфейсов ушла в прошлое. Современный QA-инженер регулярно сталкивается с задачами, требующими прямого взаимодействия с серверной ОС:</p>
+
+  <ul>
+    <li><strong>Локализация дефектов:</strong> Если при нажатии кнопки на фронтенде появляется ошибка «500 Internal Server Error», ответ кроется не в браузерном DevTools, а в логах серверных приложений на Linux.</li>
+    <li><strong>Управление тестовыми стендами:</strong> Перезапуск упавших сервисов через <code>systemctl</code>, проверка статуса контейнеров Docker, просмотр переменных окружения.</li>
+    <li><strong>Проверка интеграций и сетей:</strong> Эмуляция вызовов API с помощью <code>curl</code>, проверка доступности микросервисов через <code>ping</code>, <code>nc</code> или <code>ss</code>.</li>
+    <li><strong>Работа в CI/CD:</strong> Написание и отладка bash-скриптов для автотестов в GitHub Actions / GitLab CI agents, создающих и очищающих окружение.</li>
+  </ul>
+
+  <h3 id="linux-structure">Иерархия каталогов Linux (FHS): Что нужно знать QA</h3>
+  <p>В отличие от Windows с дисками <code>C:\</code> и <code>D:\</code>, в Linux существует единое дерево файловой системы, начинающееся с корневого каталога <code>/</code> (Root):</p>
+
+  <table style="width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 14px; text-align: left;">
+    <thead>
+      <tr style="border-bottom: 2px solid var(--border-color); background: var(--bg-surface);">
+        <th style="padding: 12px; color: var(--accent-cyan);">Каталог</th>
+        <th style="padding: 12px; color: var(--accent-emerald);">Назначение и ценность для QA</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 10px; font-weight: 600; font-family: monospace;">/var/log/</td>
+        <td style="padding: 10px;">Главное место хранения логов системных служб, Nginx, PostgreSQL, приложений.</td>
+      </tr>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 10px; font-weight: 600; font-family: monospace;">/etc/</td>
+        <td style="padding: 10px;">Конфигурационные файлы системы и сервисов (например, `/etc/nginx/nginx.conf`, `/etc/hosts`).</td>
+      </tr>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 10px; font-weight: 600; font-family: monospace;">/tmp/</td>
+        <td style="padding: 10px;">Временные файлы. Удобно использовать для хранения дампов артефактов тестов.</td>
+      </tr>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 10px; font-weight: 600; font-family: monospace;">/home/user/</td>
+        <td style="padding: 10px;">Домашние директории пользователей. Здесь обычно размещаются репозитории с автотестами.</td>
+      </tr>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 10px; font-weight: 600; font-family: monospace;">/proc/ & /sys/</td>
+        <td style="padding: 10px;">Виртуальные файловые системы, отражающие информацию о ядре, CPU и запущенных процессах.</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- SECTION 2 -->
+<div class="article-section">
+  <h2 id="cli-files">Часть 2. Главные команды Linux по группам задач (CLI Справочник)</h2>
+
+  <!-- Group 1 -->
+  <h3>Группа 1: Навигация и файловые операции</h3>
+  <table style="width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px; text-align: left;">
+    <thead>
+      <tr style="border-bottom: 2px solid var(--border-color); background: var(--bg-surface);">
+        <th style="padding: 10px; color: var(--accent-cyan);">Команда</th>
+        <th style="padding: 10px; color: var(--accent-emerald);">Описание</th>
+        <th style="padding: 10px; color: var(--accent-rose);">Пример использования</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 8px; font-family: monospace;">pwd</td>
+        <td style="padding: 8px;">Вывести текущий абсолютный путь (Print Working Directory)</td>
+        <td style="padding: 8px; font-family: monospace;">pwd</td>
+      </tr>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 8px; font-family: monospace;">ls -la</td>
+        <td style="padding: 8px;">Список всех файлов и папок, включая скрытые, с правами и размерами</td>
+        <td style="padding: 8px; font-family: monospace;">ls -la /var/log</td>
+      </tr>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 8px; font-family: monospace;">cd</td>
+        <td style="padding: 8px;">Переход в указанную директорию (`cd -` возвращает в предыдущую)</td>
+        <td style="padding: 8px; font-family: monospace;">cd /var/log/nginx</td>
+      </tr>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 8px; font-family: monospace;">mkdir -p</td>
+        <td style="padding: 8px;">Создание директории вместе с родительскими папками</td>
+        <td style="padding: 8px; font-family: monospace;">mkdir -p ./reports/allure</td>
+      </tr>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 8px; font-family: monospace;">cp -r</td>
+        <td style="padding: 8px;">Рекурсивное копирование файлов или папок</td>
+        <td style="padding: 8px; font-family: monospace;">cp -r ./src ./backup</td>
+      </tr>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 8px; font-family: monospace;">mv</td>
+        <td style="padding: 8px;">Перемещение или переименование файла/директории</td>
+        <td style="padding: 8px; font-family: monospace;">mv test.log old_test.log</td>
+      </tr>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 8px; font-family: monospace;">rm -rf</td>
+        <td style="padding: 8px;">Рекурсивное безвозвратное удаление файлов/директорий</td>
+        <td style="padding: 8px; font-family: monospace;">rm -rf ./tmp_results</td>
+      </tr>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 8px; font-family: monospace;">find</td>
+        <td style="padding: 8px;">Поиск файлов по имени, расширению или дате изменения</td>
+        <td style="padding: 8px; font-family: monospace;">find . -name "*.log" -mtime -1</td>
+      </tr>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 8px; font-family: monospace;">du -sh</td>
+        <td style="padding: 8px;">Оценка занимаемого дискового пространства директорией</td>
+        <td style="padding: 8px; font-family: monospace;">du -sh /var/log/*</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- Group 2 -->
+  <h3 id="cli-text">Группа 2: Просмотр, обработка и фильтрация текста</h3>
+  <table style="width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px; text-align: left;">
+    <thead>
+      <tr style="border-bottom: 2px solid var(--border-color); background: var(--bg-surface);">
+        <th style="padding: 10px; color: var(--accent-cyan);">Команда</th>
+        <th style="padding: 10px; color: var(--accent-emerald);">Описание</th>
+        <th style="padding: 10px; color: var(--accent-rose);">Пример использования</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 8px; font-family: monospace;">cat</td>
+        <td style="padding: 8px;">Вывод всего содержимого файла в консоль</td>
+        <td style="padding: 8px; font-family: monospace;">cat config.env</td>
+      </tr>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 8px; font-family: monospace;">less</td>
+        <td style="padding: 8px;">Постраничный просмотр больших файлов (поиск через `/pattern`)</td>
+        <td style="padding: 8px; font-family: monospace;">less app.log</td>
+      </tr>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 8px; font-family: monospace;">head -n N</td>
+        <td style="padding: 8px;">Вывод первых N строк файла</td>
+        <td style="padding: 8px; font-family: monospace;">head -n 20 error.log</td>
+      </tr>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 8px; font-family: monospace;">tail -n N</td>
+        <td style="padding: 8px;">Вывод последних N строк файла</td>
+        <td style="padding: 8px; font-family: monospace;">tail -n 50 error.log</td>
+      </tr>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 8px; font-family: monospace;">grep -i "text"</td>
+        <td style="padding: 8px;">Поиск строк с совпадениями без учета регистра</td>
+        <td style="padding: 8px; font-family: monospace;">grep -i "exception" app.log</td>
+      </tr>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 8px; font-family: monospace;">awk '{print $1}'</td>
+        <td style="padding: 8px;">Мощный утилитарный язык обработки колонок текста</td>
+        <td style="padding: 8px; font-family: monospace;">cat access.log | awk '{print $9}'</td>
+      </tr>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 8px; font-family: monospace;">sed 's/foo/bar/g'</td>
+        <td style="padding: 8px;">Потоковый редактор для замены или трансформации текста</td>
+        <td style="padding: 8px; font-family: monospace;">sed -i 's/DEBUG/INFO/g' app.conf</td>
+      </tr>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 8px; font-family: monospace;">sort | uniq -c</td>
+        <td style="padding: 8px;">Сортировка и группировка уникальных строк с подсчетом количества</td>
+        <td style="padding: 8px; font-family: monospace;">cat status.txt | sort | uniq -c</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- Group 3 -->
+  <h3 id="cli-system">Группа 3: Анализ процессов и ресурсов системы</h3>
+  <table style="width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px; text-align: left;">
+    <thead>
+      <tr style="border-bottom: 2px solid var(--border-color); background: var(--bg-surface);">
+        <th style="padding: 10px; color: var(--accent-cyan);">Команда</th>
+        <th style="padding: 10px; color: var(--accent-emerald);">Описание</th>
+        <th style="padding: 10px; color: var(--accent-rose);">Пример использования</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 8px; font-family: monospace;">ps aux</td>
+        <td style="padding: 8px;">Вывод полного списка активных процессов с PID, CPU и RAM</td>
+        <td style="padding: 8px; font-family: monospace;">ps aux | grep python</td>
+      </tr>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 8px; font-family: monospace;">top / htop</td>
+        <td style="padding: 8px;">Интерактивный мониторинг загрузки процессоров и памяти в реальном времени</td>
+        <td style="padding: 8px; font-family: monospace;">htop</td>
+      </tr>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 8px; font-family: monospace;">free -h</td>
+        <td style="padding: 8px;">Вывод доступной и использованной оперативной памяти (RAM/Swap)</td>
+        <td style="padding: 8px; font-family: monospace;">free -h</td>
+      </tr>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 8px; font-family: monospace;">df -h</td>
+        <td style="padding: 8px;">Проверка свободного места на всех примонтированных дисках</td>
+        <td style="padding: 8px; font-family: monospace;">df -h</td>
+      </tr>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 8px; font-family: monospace;">kill -9 PID</td>
+        <td style="padding: 8px;">Принудительное завершение процесса по его идентификатору (PID)</td>
+        <td style="padding: 8px; font-family: monospace;">kill -9 4521</td>
+      </tr>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 8px; font-family: monospace;">pkill -f "name"</td>
+        <td style="padding: 8px;">Завершение всех процессов, подпадающих под маску имени</td>
+        <td style="padding: 8px; font-family: monospace;">pkill -f pytest</td>
+      </tr>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 8px; font-family: monospace;">systemctl status</td>
+        <td style="padding: 8px;">Проверка состояния системной службы (`status`, `start`, `restart`, `stop`)</td>
+        <td style="padding: 8px; font-family: monospace;">systemctl status nginx</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- Group 4 -->
+  <h3 id="cli-network">Группа 4: Сетевая диагностика и тест REST API (curl)</h3>
+  <table style="width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px; text-align: left;">
+    <thead>
+      <tr style="border-bottom: 2px solid var(--border-color); background: var(--bg-surface);">
+        <th style="padding: 10px; color: var(--accent-cyan);">Команда</th>
+        <th style="padding: 10px; color: var(--accent-emerald);">Описание</th>
+        <th style="padding: 10px; color: var(--accent-rose);">Пример использования</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 8px; font-family: monospace;">curl</td>
+        <td style="padding: 8px;">Отправка HTTP/HTTPS запросов (GET, POST, PUT, DELETE) в API</td>
+        <td style="padding: 8px; font-family: monospace;">curl -X POST https://api.site/login -d '{"u":"a"}'</td>
+      </tr>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 8px; font-family: monospace;">ss -tulpn</td>
+        <td style="padding: 8px;">Просмотр всех открытых прослушиваемых TCP/UDP портов и процессов</td>
+        <td style="padding: 8px; font-family: monospace;">sudo ss -tulpn | grep 8080</td>
+      </tr>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 8px; font-family: monospace;">lsof -i :PORT</td>
+        <td style="padding: 8px;">Определение процесса, занявшего конкретный сетевой порт</td>
+        <td style="padding: 8px; font-family: monospace;">lsof -i :5432</td>
+      </tr>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 8px; font-family: monospace;">ping</td>
+        <td style="padding: 8px;">Проверка доступности удаленного хоста на сетевом уровне ICMP</td>
+        <td style="padding: 8px; font-family: monospace;">ping -c 4 staging.example.com</td>
+      </tr>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 8px; font-family: monospace;">nc -zv (netcat)</td>
+        <td style="padding: 8px;">Проверка открытого TCP-порта на удаленном сервере</td>
+        <td style="padding: 8px; font-family: monospace;">nc -zv db.staging.internal 5432</td>
+      </tr>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 8px; font-family: monospace;">dig / nslookup</td>
+        <td style="padding: 8px;">Проверка DNS-записей и резолва доменных имен в IP</td>
+        <td style="padding: 8px; font-family: monospace;">dig api.staging.com</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- Group 5 -->
+  <h3 id="cli-permissions">Группа 5: Права доступа, пользователи и SSH</h3>
+  <table style="width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px; text-align: left;">
+    <thead>
+      <tr style="border-bottom: 2px solid var(--border-color); background: var(--bg-surface);">
+        <th style="padding: 10px; color: var(--accent-cyan);">Команда</th>
+        <th style="padding: 10px; color: var(--accent-emerald);">Описание</th>
+        <th style="padding: 10px; color: var(--accent-rose);">Пример использования</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 8px; font-family: monospace;">chmod +x</td>
+        <td style="padding: 8px;">Изменение прав доступа файла (например, сделать bash-скрипт исполняемым)</td>
+        <td style="padding: 8px; font-family: monospace;">chmod +x run_tests.sh</td>
+      </tr>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 8px; font-family: monospace;">chown user:group</td>
+        <td style="padding: 8px;">Смена владельца и группы для файла или директории</td>
+        <td style="padding: 8px; font-family: monospace;">sudo chown -R qa:qa /opt/app</td>
+      </tr>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 8px; font-family: monospace;">ssh user@host</td>
+        <td style="padding: 8px;">Безопасное удаленное подключение к Linux-серверу по протоколу SSH</td>
+        <td style="padding: 8px; font-family: monospace;">ssh -i ~/.ssh/id_rsa qa@192.168.1.50</td>
+      </tr>
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 8px; font-family: monospace;">scp / rsync</td>
+        <td style="padding: 8px;">Безопасное копирование файлов между локальным ПК и удаленным сервером</td>
+        <td style="padding: 8px; font-family: monospace;">scp report.html qa@server:/var/www/html/</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- SECTION 3 -->
+<div class="article-section">
+  <h2 id="logs-anatomy">Часть 3. Глубокое погружение в работу с логами в Linux</h2>
+  <p>Логи — это главный источник истины для тестировщика. Если при автоматизации или ручном тестировании сервис ответил ошибкой `500 Internal Server Error`, грамотный QA сразу же открывает терминал Linux.</p>
+
+  <h3>Где искать логи в Linux?</h3>
+  <ul>
+    <li><code>/var/log/syslog</code> или <code>/var/log/messages</code> — системные логи ОС Linux.</li>
+    <li><code>/var/log/nginx/access.log</code> — входящие HTTP-запросы веб-сервера.</li>
+    <li><code>/var/log/nginx/error.log</code> — ошибки веб-сервера (проблемы с проксированием к бэкенду, 502 Bad Gateway).</li>
+    <li><code>docker logs -f CONTAINER_ID</code> — вывод логов изолированного приложения внутри Docker.</li>
+  </ul>
+
+  <h3 id="logs-realtime">Мониторинг логов в реальном времени (`tail -f`)</h3>
+  <p>При воспроизведении дефекта на тестовом стенде запустите отслеживание логов в реальном времени с помощью <code>tail -f</code>. Все новые строки лога будут мгновенно появляться на вашем экране.</p>
+
+  <div class="code-window">
+    <div class="code-window-header">
+      <div class="window-dots">
+        <span class="dot dot-red"></span>
+        <span class="dot dot-yellow"></span>
+        <span class="dot dot-green"></span>
+      </div>
+      <span class="window-filename">realtime_logging.sh</span>
+    </div>
+    <pre><code class="language-bash"># 1. Просмотр последних 100 строк лога приложения с авто-обновлением
+tail -f -n 100 /var/log/app/backend.log
+
+# 2. Фильтрация реального потока логов по ключевым словам ERROR или WARN
+tail -f /var/log/app/backend.log | grep -E --color=always "ERROR|WARN|Exception"</code></pre>
+  </div>
+
+  <h3 id="logs-grep-zgrep">Поиск по регулярным выражениям: `grep`, `egrep` и `zgrep`</h3>
+  <p>Когда файл логов разрастается до сотен мегабайт, просматривать его вручную невозможно. На помощь приходит `grep` и его модификации.</p>
+
+  <div class="code-window">
+    <div class="code-window-header">
+      <div class="window-dots">
+        <span class="dot dot-red"></span>
+        <span class="dot dot-yellow"></span>
+        <span class="dot dot-green"></span>
+      </div>
+      <span class="window-filename">grep_examples.sh</span>
+    </div>
+    <pre><code class="language-bash"># 1. Поиск падений с подсвечиванием совпадений и выводом 5 строк ДО и ПОСЛЕ ошибки
+grep -i -C 5 "NullPointerException" /var/log/app/backend.log
+
+# 2. Подсчет количества 500 ошибок в access.log Nginx
+grep " 500 " /var/log/nginx/access.log | wc -l
+
+# 3. Поиск в РОТИРОВАННЫХ архивных логах (.gz) без их предварительной распаковки
+zgrep -i "database connection failed" /var/log/app/backend.log.*.gz</code></pre>
+  </div>
+
+  <h3 id="logs-jq-json">Парсинг структурированных JSON-логов через `jq`</h3>
+  <p>Современные микросервисы генерируют логи в формате JSON (JSON Lines). Команда <code>jq</code> позволяет превратить мешанину сырого текста в удобочитаемый вид и выполнять сложные выборки.</p>
+
+  <div class="code-window">
+    <div class="code-window-header">
+      <div class="window-dots">
+        <span class="dot dot-red"></span>
+        <span class="dot dot-yellow"></span>
+        <span class="dot dot-green"></span>
+      </div>
+      <span class="window-filename">jq_json_logging.sh</span>
+    </div>
+    <pre><code class="language-bash"># 1. Красивое форматирование (pretty print) JSON-логов
+cat app_json.log | jq . | less
+
+# 2. Выборка только тех записей, где уровень лога равен ERROR
+cat app_json.log | jq 'select(.level=="error" or .level=="ERROR")'
+
+# 3. Извлечение времени, статуса ответа и трассировки стека ошибки (trace_id)
+cat app_json.log | jq -r 'select(.status >= 500) | [.timestamp, .status, .path, .errorMessage] | @tsv'</code></pre>
+  </div>
+
+  <h3 id="logs-journalctl">Анализ системных логов через `journalctl` (Systemd)</h3>
+  <p>В современных Linux-дистрибутивах (Ubuntu, Debian, RHEL, CentOS) управлением сервисами занимается `systemd`, а их логи хранятся в бинарном журнале <code>journald</code>.</p>
+
+  <div class="code-window">
+    <div class="code-window-header">
+      <div class="window-dots">
+        <span class="dot dot-red"></span>
+        <span class="dot dot-yellow"></span>
+        <span class="dot dot-green"></span>
+      </div>
+      <span class="window-filename">journalctl_commands.sh</span>
+    </div>
+    <pre><code class="language-bash"># 1. Просмотр логов конкретного сервиса (например, backend-api)
+sudo journalctl -u backend-api.service -n 100 --no-pager
+
+# 2. Просмотр логов за конкретный временной интервал
+sudo journalctl -u backend-api.service --since "2026-07-31 00:00:00" --until "2026-07-31 02:00:00"
+
+# 3. Фильтрация только ошибок уровня ERROR и CRITICAL (Priority 3)
+sudo journalctl -u backend-api.service -p err -f</code></pre>
+  </div>
+</div>
+
+<!-- SECTION 4 -->
+<div class="article-section">
+  <h2 id="qa-scenario-500">Часть 4. Практические сценарии QA-инженера</h2>
+
+  <h3>Сценарий 1: Локализация 500 ошибки при тестировании REST API</h3>
+  <p>Представьте: автотест упал с ответом `500 Internal Server Error` на эндпоинт `/api/v1/orders`. Алгоритм действия QA в Linux:</p>
+
+  <div class="code-window">
+    <div class="code-window-header">
+      <div class="window-dots">
+        <span class="dot dot-red"></span>
+        <span class="dot dot-yellow"></span>
+        <span class="dot dot-green"></span>
+      </div>
+      <span class="window-filename">debug_500_error.sh</span>
+    </div>
+    <pre><code class="language-bash"># Шаг 1. Отправляем запрос через curl для воспроизведения с выводом всех заголовков (-v)
+curl -v -X POST https://staging.example.com/api/v1/orders \
+  -H "Content-Type: application/json" \
+  -d '{"product_id": 999, "quantity": 1}'
+
+# Шаг 2. Подключаемся по SSH на стенд и ищем точное время падения в логе бэкенда
+ssh qa@staging.example.com "grep -C 10 '/api/v1/orders' /var/log/app/orders-service.log | tail -n 30"</code></pre>
+  </div>
+
+  <h3 id="qa-scenario-ports">Сценарий 2: Поиск причины ошибки "Port 8080 already in use"</h3>
+  <p>При запуске локального тестового окружения или автотестов вы видите ошибку блокировки порта.</p>
+
+  <div class="code-window">
+    <div class="code-window-header">
+      <div class="window-dots">
+        <span class="dot dot-red"></span>
+        <span class="dot dot-yellow"></span>
+        <span class="dot dot-green"></span>
+      </div>
+      <span class="window-filename">fix_port_conflict.sh</span>
+    </div>
+    <pre><code class="language-bash"># 1. Находим PID процесса, прослушивающего порт 8080
+sudo lsof -i :8080
+
+# Вывод: COMMAND   PID USER   FD   TYPE DEVICE SIZE/OFF NODE NAME
+#        python3  4812   qa    3u  IPv4  42109      0t0  TCP *:8080 (LISTEN)
+
+# 2. Завершаем зависший процесс
+kill -9 4812</code></pre>
+  </div>
+
+  <h3 id="qa-scenario-scp">Сценарий 3: Передача артефактов и отчетов (SCP / Rsync)</h3>
+  <div class="code-window">
+    <div class="code-window-header">
+      <div class="window-dots">
+        <span class="dot dot-red"></span>
+        <span class="dot dot-yellow"></span>
+        <span class="dot dot-green"></span>
+      </div>
+      <span class="window-filename">copy_reports.sh</span>
+    </div>
+    <pre><code class="language-bash"># Загрузка локального Allure-отчета на веб-сервер Linux
+scp -r ./allure-report qa@192.168.1.100:/var/www/html/reports/build_105</code></pre>
+  </div>
+</div>
+
+<!-- SECTION 5 -->
+<div class="article-section">
+  <h2 id="linux-antipatterns">Часть 5. Ошибки новичков и чек-лист QA</h2>
+
+  <div style="background: rgba(239, 68, 68, 0.1); border-left: 4px solid var(--accent-rose); padding: 14px 18px; border-radius: 0 8px 8px 0; margin: 20px 0; font-size: 15px;">
+    <strong style="color: var(--accent-rose);">⚠️ Топ-4 Типичных ошибок QA в Linux:</strong>
+    <ul style="margin-top: 8px; padding-left: 20px;">
+      <li><strong>Выполнение всех команд от `root` или с `sudo`:</strong> Это может случайными действиями нарушить права доступа на файлы или повредить системные пакеты.</li>
+      <li><strong>Попытка открыть гигабайтный файл лога через `nano` или `vim`:</strong> Переполняет RAM сервера и приводит к зависанию сессии. Используйте <code>less</code>, <code>tail</code> или <code>grep</code>.</li>
+      <li><strong>Забытые фоновые процессы:</strong> Запуск автотестов без явного завершения, забивающий ресурсы сервера.</li>
+      <li><strong>Удаление файлов без проверки пути:</strong> Опасность команды `rm -rf / path/to/dir` с пробелом.</li>
+    </ul>
+  </div>
+
+  <h3 id="linux-checklist">📋 Чек-лист навыков Linux для QA-инженера</h3>
+  <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 8px; padding: 18px; margin: 20px 0;">
+    <ul style="list-style: none; padding: 0;">
+      <li style="margin-bottom: 10px;">☑️ Умение подключаться к серверу по SSH с использованием RSA/Ed25519 ключей.</li>
+      <li style="margin-bottom: 10px;">☑️ Свободная навигация по дискам и поиск файлов логов (`ls -la`, `find`, `du -sh`).</li>
+      <li style="margin-bottom: 10px;">☑️ Мониторинг откликов бэкенда в реальном времени (`tail -f`, `grep -i`).</li>
+      <li style="margin-bottom: 10px;">☑️ Умение распарсить JSON-лог через `jq` и найти строку с `trace_id`.</li>
+      <li style="margin-bottom: 10px;">☑️ Проверка статуса служб и контейнеров (`systemctl status`, `docker ps`, `docker logs`).</li>
+      <li style="margin-bottom: 10px;">☑️ Проверка открытых портов и отправка HTTP-запросов из консоли (`ss -tulpn`, `curl`).</li>
+    </ul>
+  </div>
+
+  <h2>Заключение</h2>
+  <p>Уверенное владение командной строкой Linux поднимает экспертизу QA-инженера на новый уровень. Вы сможете не просто заводить баг-репорты вида <em>«Кнопка не работает»</em>, а прикладывать точную трассировку стека из логов, данные о сетевых запросах и состоянии системных ресурсов сервера.</p>
+</div>
