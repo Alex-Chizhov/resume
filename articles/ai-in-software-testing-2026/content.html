@@ -1,23 +1,495 @@
 <div class="article-lead">
-  Где генеративный ИИ действительно экономит время (генерация тест-кейсов, моки), а где пока допускает опасные галлюцинации.
+  Внедрение искусственного интеллекта в сферу обеспечения качества (QA) стало одной из самых обсуждаемых тем в IT. Торговцы инструментами обещают полную автоматизацию тестирования и увольнение ручных тестировщиков, а скептики называют ИИ обычной «игрушкой для генерации галлюцинаций». Где же проходит реальная граница между практической пользой и маркетинговым хайпом? В этом исчерпывающем руководстве мы разберем, какие задачи в QA действительно стоит доверять LLM, сравним ключевые модели (от DeepSeek до Claude), взвесим локальные и облачные решения и разберем нюансы работы с ИИ из России.
 </div>
 
-<div class="article-section">
-  <h2>Введение в тему</h2>
-  <p>Обзор актуальных решений и подходов по теме <strong>ИИ в тестировании ПО: Реальная польза против маркетингового хайпа</strong>.</p>
-  <p>В рамках обеспечения качества программного обеспечения грамотно выстроенный процесс позволяет минимизировать риски при релизе новой функциональности.</p>
-</div>
-
-<div class="article-section">
-  <h2>Ключевые аспекты и нюансы</h2>
-  <ul>
-    <li>Практическая настройка окружения и зависимостей.</li>
-    <li>Интеграция с CI/CD пайплайном и генерация отчетов.</li>
-    <li>Масштабирование тестовых наборов и оптимизация времени выполнения.</li>
+<!-- Table of Contents / Quick Navigation -->
+<div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 24px; margin: 28px 0;">
+  <h3 style="margin-top: 0; color: var(--accent-cyan); font-size: 18px; font-family: var(--font-heading); display: flex; align-items: center; gap: 8px;">
+    <span>📌</span> Быстрая навигация по статье
+  </h3>
+  <ul style="margin: 0; padding-left: 20px; line-height: 1.8; color: var(--text-secondary); font-size: 14px;">
+    <li><a href="#section-1" style="color: var(--accent-primary); text-decoration: none;">1. Что такое ИИ в контексте QA и тестирования ПО?</a></li>
+    <li><a href="#section-2" style="color: var(--accent-primary); text-decoration: none;">2. Реальная польза vs Маркетинговый хайп: Где ИИ работает, а где сливает бюджет</a></li>
+    <li><a href="#section-3" style="color: var(--accent-primary); text-decoration: none;">3. Для каких задач использовать ИИ в тестировании и автотестах (с примерами)</a></li>
+    <li><a href="#section-4" style="color: var(--accent-primary); text-decoration: none;">4. Какие модели подходят больше: Сравнение категорий и архитектур</a></li>
+    <li><a href="#section-5" style="color: var(--accent-primary); text-decoration: none;">5. Что лучше: Локальные LLM или Удаленные (Облачные API)?</a></li>
+    <li><a href="#section-6" style="color: var(--accent-primary); text-decoration: none;">6. Детальный обзор моделей: Китайские, Европейские и Глобальные лидеры</a></li>
+    <li><a href="#section-7" style="color: var(--accent-primary); text-decoration: none;">7. Доступность ИИ-моделей в РФ: Ограничения, Законы и Практические решения</a></li>
+    <li><a href="#section-8" style="color: var(--accent-primary); text-decoration: none;">8. Пошаговый алгоритм внедрения ИИ в QA-отдел</a></li>
+    <li><a href="#section-9" style="color: var(--accent-primary); text-decoration: none;">9. Итоговый вердикт и чек-лист QA-инженера</a></li>
   </ul>
 </div>
 
-<div class="article-section">
-  <h2>Заключение</h2>
-  <p>Подводя итог, внедрение лучших практик для <em>ИИ в тестировании ПО: Реальная польза против маркетингового хайпа</em> повышает стабильность вашего продукта и ускоряет обратную связь.</p>
+<!-- SECTION 1 -->
+<div class="article-section" id="section-1">
+  <h2>1. Что такое ИИ в контексте QA и тестирования ПО?</h2>
+  <p>Когда вендоры тестировочного ПО заявляют об <em>«ИИ внутри продукта»</em>, под этим названием часто скрываются совершенно разные категории технологий. Чтобы эффективно внедрять ИИ в QA, инженер должен четко разграничивать четыре архитектурных класса:</p>
+
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin: 20px 0;">
+    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 18px;">
+      <h4 style="color: var(--accent-cyan); margin-top: 0; font-size: 15px;">📊 1. Классический ML (Machine Learning)</h4>
+      <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 0;">Обучаемые модели для кластеризации логов, фильтрации нестабильных (flaky) тестов и отбора минимального набора регрессионных тестов (Test Impact Analysis) на основе изменившегося кода.</p>
+    </div>
+    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 18px;">
+      <h4 style="color: var(--accent-emerald); margin-top: 0; font-size: 15px;">🧠 2. Генеративные LLM (Большие Языковые Модели)</h4>
+      <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 0;">Модели на базе архитектуры Transformer (GPT-4o, Claude, DeepSeek), способные понимать естественный язык, читать требования (ТЗ), генерировать тест-кейсы и писать код автотестов на Python, JS или Java.</p>
+    </div>
+    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 18px;">
+      <h4 style="color: var(--accent-purple); margin-top: 0; font-size: 15px;">👁️ 3. Мультимодальный ИИ (Vision LLMs)</h4>
+      <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 0;">Модели, сопоставляющие макеты Figma со скриншотами реального приложения. Позволяют выявлять версточные сдвиги, неверные отступы и ошибки шрифтов без ручного PixelMatch.</p>
+    </div>
+    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 18px;">
+      <h4 style="color: var(--accent-amber); margin-top: 0; font-size: 15px;">🤖 4. Автономные QA-агенты (Agentic Testing)</h4>
+      <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 0;">Связки LLM с браузерными фреймворками (Playwright/Puppeteer), которые самостоятельно «исследуют» интерфейс, планируют цепочки шагов и ищут аномалии без предварительно написанного тест-кейса.</p>
+    </div>
+  </div>
+
+  <p>Главный парадигмальный сдвиг 2026 года заключается в том, что <strong>ИИ в тестировании — это не замена тестировщика, а ускоритель мышления и рутины (AI Copilot)</strong>. ИИ берёт на себя рутинную генерацию boilerplate-кода, валидацию больших схем JSON и подготовку данных, освобождая QA-инженеру время для исследовательского тестирования и тест-архитектуры.</p>
+</div>
+
+<!-- SECTION 2 -->
+<div class="article-section" id="section-2">
+  <h2>2. Реальная польза vs Маркетинговый хайп: Где ИИ работает, а где сливает бюджет</h2>
+  <p>Маркетологи B2B-инструментов обещают «автоматизацию 90% тестирования в 1 клик». В реальности попытка отдать ИИ весь процесс QA без контроля приводит к катастрофическим последствиям. Разберем суровые факты.</p>
+
+  <div class="table-responsive" style="margin: 20px 0;">
+    <table class="comparison-table">
+      <thead>
+        <tr>
+          <th style="width: 50%;">✅ Реальная польза (Real Engineering Value)</th>
+          <th style="width: 50%;">❌ Маркетинговый хайп и опасные иллюзии</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Ускорение написания автотестов в 2.5–4 раза:</strong> ИИ моментально генерирует шаблоны Page Object, фикстуры PyTest и типизированные DTO из Swagger.</td>
+          <td><strong>«Тесты без кода и без участия человека»:</strong> Модели не знают сквозную бизнес-логику вашего продукта и генерируют поверхностные тесты «счастливого пути» (Happy Path).</td>
+        </tr>
+        <tr>
+          <td><strong>Генерация граничных значений (Edge Cases):</strong> LLM отлично ищут нетривиальные комбинации спецсимволов, эмодзи, переполнения строк и пустые значение.</td>
+          <td><strong>«Самовосстанавливающиеся тесты» (Self-Healing Tests):</strong> В 70% случаев ИИ подменяет падающий локатор на первый попавшийся элемент, маскируя критический баг верстки или логики.</td>
+        </tr>
+        <tr>
+          <td><strong>Синтез тестовых данных:</strong> Мгновенный созвон с генерацией 1000 реалистичных пользователей с корректными ИНН, СНИЛС, Email и балансами.</td>
+          <td><strong>«Автоматический поиск архитектурных багов»:</strong> ИИ не видит межсервисные гонки условий (Race Conditions) и сложные транзакционные аномалии в БД.</td>
+        </tr>
+        <tr>
+          <td><strong>Анализ падающих CI-сборок:</strong> Сворачивание 10 000 строк логов падения в емкую выжимку с указанием вероятной причины (Root Cause Analysis).</td>
+          <td><strong>«100% покрытие требований в 1 клик»:</strong> Модели допускают галлюцинации, выдумывая не существующие функции и методы API.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div style="background: rgba(239, 68, 68, 0.08); border-left: 4px solid var(--accent-rose); padding: 16px; border-radius: 0 8px 8px 0; margin: 20px 0;">
+    <strong style="color: var(--accent-rose); font-size: 15px;">⚠️ Главный риск: Синдром доверчивого QA (AI Blind Trust)</strong>
+    <p style="font-size: 13px; margin: 8px 0 0 0; color: var(--text-primary);">
+      Самая опасная ловушка — копировать сгенерированные ИИ автотесты без ревью. ИИ может сгенерировать тест, который всегда возвращает <code>True</code> или проверяет некорректное утверждение (False Positive Success). <strong>Код ИИ требует такого же строгого Code Review, как и код Junior-разработчика!</strong>
+    </p>
+  </div>
+</div>
+
+<!-- SECTION 3 -->
+<div class="article-section" id="section-3">
+  <h2>3. Для каких задач использовать ИИ в тестировании и автотестах (с примерами)</h2>
+  <p>Рассмотрев теорию, перейдем к прикладным кейсам, где генеративный ИИ показывает максимальный окупаемый результат (ROI).</p>
+
+  <h3>3.1. Генерация тест-кейсов, чек-листов и граничных значений</h3>
+  <p>Перевод сырых пользовательских историй (User Stories) из Jira в структурированные тест-кейсы — идеальная задача для LLM. Модель учитывает классические техники тест-дизайна (эквивалентное разделение, граничные значения, анализ причинно-следственных связей).</p>
+
+  <div class="code-window">
+    <div class="code-window-header">
+      <div class="window-dots">
+        <span class="dot dot-red"></span>
+        <span class="dot dot-yellow"></span>
+        <span class="dot dot-green"></span>
+      </div>
+      <span class="window-filename">Prompt_TestDesign_QA.txt</span>
+    </div>
+    <pre><code class="language-markdown">### СИСТЕМНЫЙ ПРОМПТ ДЛЯ ТЕСТ-ДИЗАЙНА
+Роль: Senior QA Engineer.
+Задача: Проанализируй требование к форме оплаты и составь чек-лист для тестирования.
+Используй техники: Граничные значения, эквивалентные классы, негативные сценарии.
+
+Требование: Поле "Сумма перевода" принимает от 10 до 150 000 рублей. Дробные числа до 2 знаков после запятой.
+
+Вывод сформируй в виде таблицы:
+| ID | Категория | Входные данные | Ожидаемый результат | Техника тест-дизайна |</code></pre>
+  </div>
+
+  <h3>3.2. Генерация автотестов на Python (Playwright / PyTest)</h3>
+  <p>ИИ способен превратить Gherkin-сценарий или элемент HTML в готовый автотест на Python с паттерном Page Object Model.</p>
+
+  <div class="code-window">
+    <div class="code-window-header">
+      <div class="window-dots">
+        <span class="dot dot-red"></span>
+        <span class="dot dot-yellow"></span>
+        <span class="dot dot-green"></span>
+      </div>
+      <span class="window-filename">test_generated_checkout.py</span>
+    </div>
+    <pre><code class="language-python"># Сгенерировано DeepSeek-V3 / Claude 3.5 Sonnet с последующей валидацией QA
+import pytest
+from playwright.sync_api import Page, expect
+
+class LoginPage:
+    def __init__(self, page: Page):
+        self.page = page
+        self.username_input = page.locator("#user-name")
+        self.password_input = page.locator("#password")
+        self.login_button = page.locator("#login-button")
+        self.error_message = page.locator("[data-test='error']")
+
+    def navigate(self):
+        self.page.goto("https://www.saucedemo.com/")
+
+    def login(self, username: str, password: str):
+        self.username_input.fill(username)
+        self.password_input.fill(password)
+        self.login_button.click()
+
+@pytest.mark.parametrize("user, pwd, expected_error", [
+    ("", "secret_sauce", "Epic sadface: Username is required"),
+    ("standard_user", "", "Epic sadface: Password is required"),
+    ("invalid_user", "wrong_pass", "Epic sadface: Username and password do not match"),
+])
+def test_login_negative_scenarios(page: Page, user: str, pwd: str, expected_error: str):
+    """Параметризованный негативный тест авторизации"""
+    login_page = LoginPage(page)
+    login_page.navigate()
+    login_page.login(user, pwd)
+    expect(login_page.error_message).to_have_text(expected_error)</code></pre>
+  </div>
+
+  <h3>3.3. Синтез тестовых данных (Mocking & Test Data Generation)</h3>
+  <p>Вместо того чтобы вручную сочинять массивы JSON или SQL-скрипты, попросите ИИ сгенерировать сложную иерархическую структуру со специфическими ограничениями (например, валидные схемы с миллионами вложенностей, узбекскими номерами телефонов или банковскими IBAN).</p>
+
+  <h3>3.4. Автоматический анализ логов и Root Cause Analysis (RCA)</h3>
+  <p>При падении 50 тестов в CI/CD передайте стектрейсы в LLM. Модель сгруппирует падения по общей причине (например: <em>«45 тестов упали из-за таймаута подключения к Redis в фикстуре setup_db»</em>), сэкономив QA-инженеру до часа разбора логов.</p>
+</div>
+
+<!-- SECTION 4 -->
+<div class="article-section" id="section-4">
+  <h2>4. Какие модели подходят больше: Сравнение категорий и архитектур</h2>
+  <p>Не все языковые модели одинаково полезны для QA. Разделим современные ИИ-модели на 3 фундаментальных типа по их специализации:</p>
+
+  <div style="margin: 20px 0;">
+    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 20px; margin-bottom: 16px;">
+      <h3 style="color: var(--accent-cyan); margin-top: 0; font-size: 17px;">1. Проприетарные универсальные флагманы (Generalist LLMs)</h3>
+      <p><strong>Представители:</strong> Claude 3.5 Sonnet, Claude 3.7 Sonnet, GPT-4o.</p>
+      <p style="font-size: 14px; color: var(--text-secondary);">
+        Обладают наивысшим интеллектом, превосходно понимают размытые контексты ТЗ, блестяще пишут код на Python/Playwright и строят архитектурные паттерны. Идеальны для создания каркасов автотестов и комплексного тест-дизайна.
+      </p>
+    </div>
+
+    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 20px; margin-bottom: 16px;">
+      <h3 style="color: var(--accent-emerald); margin-top: 0; font-size: 17px;">2. Специализированные кодовые модели (Code-Tailored LLMs)</h3>
+      <p><strong>Представители:</strong> DeepSeek-Coder-V2, Qwen2.5-Coder, Codestral (Mistral).</p>
+      <p style="font-size: 14px; color: var(--text-secondary);">
+        Модели, дообученные на миллиардах строк кода и коммитов. Меньше галлюцинируют в синтаксисе, мгновенно автодополняют код в IDE (через Continue / GitHub Copilot), дешевле в эксплуатации и обладают невероятной точностью в типизации.
+      </p>
+    </div>
+
+    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 20px;">
+      <h3 style="color: var(--accent-amber); margin-top: 0; font-size: 17px;">3. Рассуждающие модели (Reasoning Models / Chain-of-Thought)</h3>
+      <p><strong>Представители:</strong> DeepSeek-R1, OpenAI o1, OpenAI o3-mini.</p>
+      <p style="font-size: 14px; color: var(--text-secondary);">
+        Перед выдачей ответа генерируют внутреннюю цепочку мыслей (Chain-of-Thought). Показывают превосходные результаты в поиске сложнейших edge-cases, пошаговой валидации бизнес-логики и анализе скрытых багов в алгоритмах.
+      </p>
+    </div>
+
+    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 20px; margin-top: 16px;">
+      <h3 style="color: var(--accent-purple); margin-top: 0; font-size: 17px;">4. Модели со сверхдлинным контекстом (Long-Context Models)</h3>
+      <p><strong>Представители:</strong> Moonshot Kimi (Kimi K3 / k1.5), Gemini 1.5 Pro.</p>
+      <p style="font-size: 14px; color: var(--text-secondary);">
+        Обладают контекстным окном от 2 до 10 миллионов токенов и продвинутой мультимодальностью. Позволяют скормить ИИ всю кодовую базу автотестов репозитория, многостраничные ТЗ и гигабайты логов сборок CI/CD целиком без потери точности (Long-Context Needle-In-A-Haystack).
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 5 -->
+<div class="article-section" id="section-5">
+  <h2>5. Что лучше: Локальные LLM или Удаленные (Облачные API)?</h2>
+  <p>Один из главных архитектурных вопросов при внедрении ИИ в компании: <strong>отправлять ли данные в облачные API или разворачивать модели на собственных серверах?</strong></p>
+
+  <div class="table-responsive" style="margin: 20px 0;">
+    <table class="comparison-table">
+      <thead>
+        <tr>
+          <th>Параметр</th>
+          <th>🏠 Локальные LLM (Ollama, vLLM)</th>
+          <th>☁️ Облачные API (OpenAI, Anthropic, DeepSeek Cloud)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Безопасность и Конфиденциальность</strong></td>
+          <td><span style="color: var(--accent-emerald); font-weight: 700;">100% Приватность.</span> Код, ТЗ и логи не покидают периметр компании (Zero Data Leak).</td>
+          <td><span style="color: var(--accent-rose); font-weight: 700;">Риск утечки.</span> Данные передаются на внешние сервера (требуется Enterprise NDA / SOC2).</td>
+        </tr>
+        <tr>
+          <td><strong>Требования к железу</strong></td>
+          <td>Высокие. Нужны мощные GPU (NVIDIA RTX 4090 / A100 / Mac Studio M3 Max с 32-128 ГБ VRAM).</td>
+          <td><span style="color: var(--accent-emerald); font-weight: 700;">Нулевые.</span> Достаточно слабого ноутбука и интернет-соединения.</td>
+        </tr>
+        <tr>
+          <td><strong>Качество разумных сценариев</strong></td>
+          <td>Отличное для моделей 32B–70B (Qwen2.5-Coder), но уступает флагманским облакам в глубокой аналитике.</td>
+          <td><span style="color: var(--accent-emerald); font-weight: 700;">Максимальное (State-of-the-Art).</span> Безупречный уровень рассуждений и написания кода.</td>
+        </tr>
+        <tr>
+          <td><strong>Стоимость владения (TCO)</strong></td>
+          <td>CAPEX (покупка серверов), но $0 за токены после запуска. Неограниченный прогон.</td>
+          <td>OPEX (подписка $20/мес на пользователя или оплата за миллионы токенов по API).</td>
+        </tr>
+        <tr>
+          <td><strong>Доступность в РФ</strong></td>
+          <td><span style="color: var(--accent-emerald); font-weight: 700;">Абсолютная.</span> Работают без интернета, VPN и блокировок.</td>
+          <td>Требуются прокси, VPN и зарубежные банковские карты (для ряда вендоров).</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div style="background: rgba(16, 185, 129, 0.08); border-left: 4px solid var(--accent-emerald); padding: 16px; border-radius: 0 8px 8px 0; margin: 20px 0;">
+    <strong style="color: var(--accent-emerald); font-size: 15px;">💡 Практический вердикт по выбору развертывания:</strong>
+    <ul style="margin: 8px 0 0 0; padding-left: 20px; font-size: 14px; color: var(--text-primary);">
+      <li><strong>Для Банков, Финтеха и Госпроектов:</strong> Строго <u>Локальные модели</u> (Qwen 2.5 Coder 32B / DeepSeek-R1-Distill) через Ollama / vLLM в защищенном контуре.</li>
+      <li><strong>Для Аутсорса и Продуктовых стартапов:</strong> <u>Облачные API</u> (Claude 3.5 Sonnet, DeepSeek V3/R1) для максимальной скорости разработки автотестов.</li>
+    </ul>
+  </div>
+</div>
+
+<!-- SECTION 6 -->
+<div class="article-section" id="section-6">
+  <h2>6. Детальный обзор моделей: Китайские, Европейские и Глобальные лидеры</h2>
+
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin: 24px 0;">
+    
+    <!-- DeepSeek -->
+    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 22px; display: flex; flex-direction: column; justify-content: space-between;">
+      <div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <h3 style="color: var(--accent-cyan); margin: 0; font-size: 18px;">🇨🇳 DeepSeek (V3 / R1)</h3>
+          <span style="background: rgba(6, 182, 212, 0.15); color: var(--accent-cyan); padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 600;">Мировой Феномен</span>
+        </div>
+        <p style="font-size: 14px; color: var(--text-secondary); line-height: 1.6;">
+          Китайский гигант, изменивший всю индустрию ИИ. Модель DeepSeek-V3 демонстрирует уровень кода наравне с GPT-4o при стоимости API в 10–20 раз ниже! А рассуждающая модель DeepSeek-R1 с открытым исходным кодом решает сложнейшие логические задачи тест-дизайна.
+        </p>
+      </div>
+      <div style="margin-top: 14px; pt-12; border-top: 1px solid var(--border-color); font-size: 13px; color: var(--text-muted);">
+        <strong>Статус в QA:</strong> Выбор №1 по соотношению цена/качество. Открытые веса.
+      </div>
+    </div>
+
+    <!-- Qwen -->
+    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 22px; display: flex; flex-direction: column; justify-content: space-between;">
+      <div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <h3 style="color: var(--accent-emerald); margin: 0; font-size: 18px;">🇨🇳 Qwen 2.5 Coder (Alibaba)</h3>
+          <span style="background: rgba(16, 185, 129, 0.15); color: var(--accent-emerald); padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 600;">Король Local Open-Source</span>
+        </div>
+        <p style="font-size: 14px; color: var(--text-secondary); line-height: 1.6;">
+          Лучшая серия открытых кодовых моделей в мире. Версии Qwen2.5-Coder (от 1.5B до 32B параметров) работают локально даже на обычных ноутбуках с 16GB RAM, показывая потрясающие результаты в генерации Python, JS, SQL и фикстур PyTest.
+        </p>
+      </div>
+      <div style="margin-top: 14px; pt-12; border-top: 1px solid var(--border-color); font-size: 13px; color: var(--text-muted);">
+        <strong>Статус в QA:</strong> Главный стандарт для автономной локальной работы без интернета.
+      </div>
+    </div>
+
+    <!-- Moonshot Kimi -->
+    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 22px; display: flex; flex-direction: column; justify-content: space-between;">
+      <div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <h3 style="color: var(--accent-rose); margin: 0; font-size: 18px;">🇨🇳 Moonshot Kimi (K3 / k1.5)</h3>
+          <span style="background: rgba(244, 63, 94, 0.15); color: var(--accent-rose); padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 600;">Reasoning & 2M-10M Context</span>
+        </div>
+        <p style="font-size: 14px; color: var(--text-secondary); line-height: 1.6;">
+          Разработка компании Moonshot AI. Флагманская архитектура Kimi K3 объединяет глубокое рассуждение (Reasoning), мультимодальность и рекордное контекстное окно. Модель способна анализировать целые монорепозитории автотестов, сотни страниц спецификаций и многогигабайтные логи для комплексного Root Cause Analysis.
+        </p>
+      </div>
+      <div style="margin-top: 14px; pt-12; border-top: 1px solid var(--border-color); font-size: 13px; color: var(--text-muted);">
+        <strong>Статус в QA:</strong> Лидер по аналитике гигантских объемов кода и длинных CI/CD сборок.
+      </div>
+    </div>
+
+    <!-- Mistral -->
+    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 22px; display: flex; flex-direction: column; justify-content: space-between;">
+      <div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <h3 style="color: var(--accent-purple); margin: 0; font-size: 18px;">🇪🇺 Mistral & Codestral</h3>
+          <span style="background: rgba(168, 85, 247, 0.15); color: var(--accent-purple); padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 600;">Европейская Независимость</span>
+        </div>
+        <p style="font-size: 14px; color: var(--text-secondary); line-height: 1.6;">
+          Разработка французской компании Mistral AI. Специализированная модель Codestral обучена на 80+ языках программирования. Имеет невероятно быструю генерацию и строгую приверженность европейским стандартам приватности (GDPR).
+        </p>
+      </div>
+      <div style="margin-top: 14px; pt-12; border-top: 1px solid var(--border-color); font-size: 13px; color: var(--text-muted);">
+        <strong>Статус в QA:</strong> Превосходный выбор для автодополнения кода в IDE.
+      </div>
+    </div>
+
+    <!-- Claude -->
+    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 22px; display: flex; flex-direction: column; justify-content: space-between;">
+      <div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <h3 style="color: var(--accent-amber); margin: 0; font-size: 18px;">🇺🇸 Claude 3.5 / 3.7 Sonnet</h3>
+          <span style="background: rgba(245, 158, 11, 0.15); color: var(--accent-amber); padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 600;">Золотой Эталон Кода</span>
+        </div>
+        <p style="font-size: 14px; color: var(--text-secondary); line-height: 1.6;">
+          Создание компании Anthropic. До сих пор удерживает титул лучшей модели в мире по написанию чистого, поддерживаемого кода и пониманию сложных архитектурных паттернов автотестирования (Page Object, Screenplay).
+        </p>
+      </div>
+      <div style="margin-top: 14px; pt-12; border-top: 1px solid var(--border-color); font-size: 13px; color: var(--text-muted);">
+        <strong>Статус в QA:</strong> Непревзойденный лидер по качеству кода, но требует VPN и зарубежную оплату.
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- SECTION 7 -->
+<div class="article-section" id="section-7">
+  <h2>7. Доступность ИИ-моделей в РФ: Ограничения, Законы и Практические решения</h2>
+  <p>Для QA-инженеров и IT-компаний из России ключевым вопросом является легальность, доступность и стабильность работы с ИИ-сервисами.</p>
+
+  <h3>7.1. Карта доступности моделей в РФ</h3>
+  <div class="table-responsive" style="margin: 20px 0;">
+    <table class="comparison-table">
+      <thead>
+        <tr>
+          <th>Вендор / Модель</th>
+          <th>Прямой доступ из РФ</th>
+          <th>Блокировки и Ограничения</th>
+          <th>Рекомендованный способ работы</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>DeepSeek (V3 / R1)</strong></td>
+          <td><span style="color: var(--accent-emerald); font-weight: 700;">✅ Да (100%)</span></td>
+          <td>Ограничений нет. Официальный сайт и API доступны без VPN.</td>
+          <td>Прямой веб-интерфейс, официальный API или локальные веса в Ollama.</td>
+        </tr>
+        <tr>
+          <td><strong>Alibaba Qwen (2.5)</strong></td>
+          <td><span style="color: var(--accent-emerald); font-weight: 700;">✅ Да (100%)</span></td>
+          <td>Полностью открытые веса (Open Source). Нет гео-блокировок.</td>
+          <td>Локальный запуск через Ollama / LM Studio или Hugging Face API.</td>
+        </tr>
+        <tr>
+          <td><strong>Moonshot Kimi (K3 / k1.5)</strong></td>
+          <td><span style="color: var(--accent-emerald); font-weight: 700;">✅ Да (100%)</span></td>
+          <td>Официальный веб-интерфейс (kimi.ai) и API доступны без блокировок по IP РФ.</td>
+          <td>Прямой веб-чат kimi.ai, официальный API Moonshot или через OpenRouter.</td>
+        </tr>
+        <tr>
+          <td><strong>Mistral AI / Codestral</strong></td>
+          <td><span style="color: var(--accent-emerald); font-weight: 700;">✅ Да (для Open Weights)</span></td>
+          <td>Веса моделей доступны на HuggingFace. Облачный API ограничен по банковским картам.</td>
+          <td>Локальный запуск весов Codestral или API через агрегаторы.</td>
+        </tr>
+        <tr>
+          <td><strong>Anthropic (Claude 3.5/3.7)</strong></td>
+          <td><span style="color: var(--accent-rose); font-weight: 700;">❌ Заблокирован</span></td>
+          <td>Жесткая блокировка по IP РФ, номеру телефона и зарубежным банковским картам.</td>
+          <td>Использование API-агрегаторов (OpenRouter / ProxyAPI) или VPN + виртуальные карты.</td>
+        </tr>
+        <tr>
+          <td><strong>OpenAI (ChatGPT / GPT-4o)</strong></td>
+          <td><span style="color: var(--accent-rose); font-weight: 700;">❌ Заблокирован</span></td>
+          <td>Блокировка по IP РФ. API требует зарубежный аккаунт и карту.</td>
+          <td>API-прокси (ProxyAPI, Bothub) с оплатой в рублях / ЮMoney.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>7.2. Рабочие схемы использования ИИ в РФ без риска блокировок</h3>
+  
+  <div style="margin: 20px 0;">
+    <div style="background: var(--bg-card); border-left: 4px solid var(--accent-cyan); padding: 16px; margin-bottom: 12px; border-radius: 0 8px 8px 0;">
+      <h4 style="margin: 0 0 6px 0; color: var(--accent-cyan); font-size: 15px;">1. Локальный контур на Ollama + Continue (VS Code / PyCharm)</h4>
+      <p style="margin: 0; font-size: 13px; color: var(--text-secondary);">
+        Устанавливается утилита <strong>Ollama</strong>, скачивается модель <code>qwen2.5-coder:32b</code> или <code>deepseek-r1:14b</code>. В IDE ставятся плагины Continue или Cody, указывающие на <code>http://localhost:11434</code>. <strong>Результат:</strong> полноценный ИИ-автодополнитель и QA-ассистент без отправки байта данных в интернет.
+      </p>
+    </div>
+
+    <div style="background: var(--bg-card); border-left: 4px solid var(--accent-emerald); padding: 16px; margin-bottom: 12px; border-radius: 0 8px 8px 0;">
+      <h4 style="margin: 0 0 6px 0; color: var(--accent-emerald); font-size: 15px;">2. API-Агрегаторы с оплатой в рублях (OpenRouter / ProxyAPI)</h4>
+      <p style="margin: 0; font-size: 13px; color: var(--text-secondary);">
+        Позволяют получать доступ к Claude 3.5 Sonnet, GPT-4o и DeepSeek через единый REST API ключ. Оплата производится корпоративными российскими картами или по безналичному расчету.
+      </p>
+    </div>
+
+    <div style="background: var(--bg-card); border-left: 4px solid var(--accent-purple); padding: 16px; border-radius: 0 8px 8px 0;">
+      <h4 style="margin: 0 0 6px 0; color: var(--accent-purple); font-size: 15px;">3. Отечественные LLM (YandexGPT 4 / GigaChat PRO)</h4>
+      <p style="margin: 0; font-size: 13px; color: var(--text-secondary);">
+        Подходят для анализа ТЗ на русском языке и генерации русскоязычных чек-листов. Однако в задачах написания сложных автотестов на Python/Playwright они пока уступают DeepSeek и Qwen.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 8 -->
+<div class="article-section" id="section-8">
+  <h2>8. Пошаговый алгоритм внедрения ИИ в QA-отдел</h2>
+  <p>Чтобы внедрение ИИ принесло реальный профит, а не хаос, следуйте проверенной дорожной карте:</p>
+
+  <div style="display: flex; flex-direction: column; gap: 14px; margin: 20px 0;">
+    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; padding: 16px; display: flex; gap: 16px; align-items: flex-start;">
+      <span style="background: var(--accent-cyan); color: #000; font-weight: 800; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">1</span>
+      <div>
+        <h4 style="margin: 0 0 4px 0; font-size: 15px; color: var(--text-primary);">Классификация чувствительности данных (Security Audit)</h4>
+        <p style="margin: 0; font-size: 13px; color: var(--text-secondary);">Определите, какие данные категорически запрещено отправлять в внешние облака (персональные данные, боевые ключи API, проприетарный код). Зафиксируйте регламент для команды.</p>
+      </div>
+    </div>
+
+    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; padding: 16px; display: flex; gap: 16px; align-items: flex-start;">
+      <span style="background: var(--accent-emerald); color: #000; font-weight: 800; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">2</span>
+      <div>
+        <h4 style="margin: 0 0 4px 0; font-size: 15px; color: var(--text-primary);">Развертывание базовой инфраструктуры</h4>
+        <p style="margin: 0; font-size: 13px; color: var(--text-secondary);">Настройте единый прокси-сервер или установите локальный сервер с Ollama + Qwen2.5-Coder для всех тестировщиков отдела.</p>
+      </div>
+    </div>
+
+    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; padding: 16px; display: flex; gap: 16px; align-items: flex-start;">
+      <span style="background: var(--accent-purple); color: #000; font-weight: 800; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">3</span>
+      <div>
+        <h4 style="margin: 0 0 4px 0; font-size: 15px; color: var(--text-primary);">Создание базы корпоративных системных промптов (Prompt Library)</h4>
+        <p style="margin: 0; font-size: 13px; color: var(--text-secondary);">Составьте стандартизированные промпты под специфику вашего стека (например: <em>«Генерация PyTest тестов под наш внутренних фреймворк с фикстурой API_Client»</em>).</p>
+      </div>
+    </div>
+
+    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; padding: 16px; display: flex; gap: 16px; align-items: flex-start;">
+      <span style="background: var(--accent-amber); color: #000; font-weight: 800; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">4</span>
+      <div>
+        <h4 style="margin: 0 0 4px 0; font-size: 15px; color: var(--text-primary);">Введение обязательного перекрестного Code Review</h4>
+        <p style="margin: 0; font-size: 13px; color: var(--text-secondary);">Внедрите правило: 100% сгенерированного ИИ кода автотестов должно проверяться человеком перед мержем в ветку <code>main</code>.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 9 -->
+<div class="article-section" id="section-9">
+  <h2>9. Итоговый вердикт и чек-лист QA-инженера</h2>
+  
+  <div class="article-lead" style="border-left-color: var(--accent-cyan); background: rgba(6, 182, 212, 0.08); margin-bottom: 24px;">
+    <strong>Резюме:</strong> ИИ в тестировании ПО — это не волшебная кнопка «сделать красиво», а мощный многофункциональный инструмент. Он не заменит квалифицированного тестировщика с системным мышлением, но QA-инженер, умеющий работать в связке с LLM, несомненно заменит того, кто отказывается от ИИ.
+  </div>
+
+  <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 20px;">
+    <h3 style="margin-top: 0; color: var(--accent-emerald); font-size: 16px;">📋 Золотые правила работы с ИИ для QA-инженера:</h3>
+    <ul style="margin: 10px 0 0 0; padding-left: 20px; line-height: 1.8; color: var(--text-primary); font-size: 14px;">
+      <td>✔️ <strong>Используйте DeepSeek-V3 и Qwen2.5-Coder</strong> как основные рабочие лошадки для рутинного написания кода.</td>
+      <td>✔️ <strong>Доверяйте ИИ синтез моков и рутину,</strong> но держите архитектурный контроль в своих руках.</td>
+      <td>✔️ <strong>Относитесь к коду от LLM с разумным скепсисом:</strong> запускайте тесты локально и проверяйте ассерты.</td>
+      <td>❌ <strong>Не передавайте секреты и данные клиентов</strong> в открытые неконтролируемые облачные чаты.</td>
+      <td>❌ <strong>Не ведитесь на маркетинговый хайп «No-Code AI testing»:</strong> фундаментальное понимание Python, Playwright и системной архитектуры остается главным навыком на рынке.</td>
+    </ul>
+  </div>
 </div>
