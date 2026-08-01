@@ -1,0 +1,543 @@
+<div class="article-lead">
+  Вопросы обеспечения безопасности и правильного разграничения прав доступа — одна из ключевых сфер ответственности QA-инженера. По данным отчетов OWASP API Security Top 10, уязвимости типа <strong>BOLA (Broken Object Level Authorization / IDOR)</strong> и <strong>BFLA (Broken Function Level Authorization)</strong> из года в год занимают первые строчки среди самых критических брешей в современных веб-приложениях и микросервисах. В этом масштабном практическом руководстве мы подробнейшим образом разберем разницу между аутентификацией и авторизацией, изучим ключевые протоколы (Basic Auth, JWT Bearer, Cookie/Session, API Keys, OAuth 2.0 / OIDC), сравним модели контроля доступа (RBAC, ABAC, ReBAC) и построим полноценный фреймворк автотестирования на <strong>Python и PyTest</strong> с детальной матрицей тест-кейсов.
+</div>
+
+<!-- Table of Contents (TOC) with Anchors -->
+<div class="toc-container">
+  <div class="toc-title">📑 Оглавление статьи</div>
+  <div class="toc-grid">
+    
+    <div class="toc-section-block">
+      <span class="toc-section-label">Часть 1. Теоретический фундамент</span>
+      <ul class="toc-list">
+        <li><a href="#auth-vs-authz">1. AuthN vs AuthZ: В чем принципиальная разница?</a></li>
+        <li><a href="#http-status-codes">2. Анатомия HTTP: 401 Unauthorized vs 403 Forbidden</a></li>
+      </ul>
+    </div>
+
+    <div class="toc-section-block">
+      <span class="toc-section-label">Часть 2. Виды авторизации и аутентификации</span>
+      <ul class="toc-list">
+        <li><a href="#basic-auth">3. Basic Authentication & API Keys</a></li>
+        <li><a href="#jwt-bearer">4. Bearer Tokens & JWT (JSON Web Tokens)</a></li>
+        <li><a href="#cookie-session">5. Cookie & Session-based Auth + CSRF</a></li>
+        <li><a href="#oauth2-oidc">6. OAuth 2.0 & OpenID Connect (OIDC)</a></li>
+      </ul>
+    </div>
+
+    <div class="toc-section-block">
+      <span class="toc-section-label">Часть 3. Модели управления доступом</span>
+      <ul class="toc-list">
+        <li><a href="#rbac-abac-rebac">7. Сравнение моделей: RBAC, ABAC и ReBAC</a></li>
+        <li><a href="#vulnerabilities-bola-bfla">8. Уязвимости BOLA/IDOR и BFLA</a></li>
+      </ul>
+    </div>
+
+    <div class="toc-section-block">
+      <span class="toc-section-label">Часть 4. Автоматизация на Python & PyTest</span>
+      <ul class="toc-list">
+        <li><a href="#pytest-architecture">9. Архитектура тестового стенда в conftest.py</a></li>
+        <li><a href="#pytest-auth-tests">10. Примеры автотестов: JWT, Session, API Key</a></li>
+        <li><a href="#pytest-rbac-idor-tests">11. Автотесты для RBAC и проверки BOLA / IDOR</a></li>
+      </ul>
+    </div>
+
+    <div class="toc-section-block">
+      <span class="toc-section-label">Часть 5. Практика и Матрица Тест-кейсов</span>
+      <ul class="toc-list">
+        <li><a href="#test-cases-matrix">12. Исчерпывающая матрица Тест-кейсов</a></li>
+        <li><a href="#qa-checklist">13. Чек-лист безопасности для QA в 2026 году</a></li>
+      </ul>
+    </div>
+
+  </div>
+</div>
+
+<!-- SECTION 1 -->
+<div class="article-section">
+  <h2 id="auth-vs-authz">Часть 1. AuthN vs AuthZ: В чем принципиальная разница?</h2>
+  <p>В инженерной среде термины <em>Authentication</em> и <em>Authorization</em> часто ошибочно объединяют, однако в QA и информационной безопасности они обозначают два абсолютно разных этапа проверки запроса.</p>
+
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin: 20px 0;">
+    <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.3); padding: 20px; border-radius: 12px;">
+      <h3 style="color: #10b981; margin-top: 0; font-size: 18px;">🔑 Аутентификация (AuthN)</h3>
+      <p style="margin-bottom: 8px;"><strong>Вопрос:</strong> «Кто вы такой?»</p>
+      <p style="font-size: 14px; color: var(--text-muted);">Процесс проверки подлинности субъекта (пользователя или сервиса) на основе предоставленных учётных данных (пароль, токен, сертификат, биометрия).</p>
+      <ul style="font-size: 14px; margin-bottom: 0; padding-left: 20px;">
+        <li>Проверка логина и пароля</li>
+        <li>Валидация подписи JWT-токена</li>
+        <li>Проверка OTP-кода из 2FA</li>
+      </ul>
+    </div>
+
+    <div style="background: rgba(99, 102, 241, 0.08); border: 1px solid rgba(99, 102, 241, 0.3); padding: 20px; border-radius: 12px;">
+      <h3 style="color: #6366f1; margin-top: 0; font-size: 18px;">🛡️ Авторизация (AuthZ)</h3>
+      <p style="margin-bottom: 8px;"><strong>Вопрос:</strong> «Что вам разрешено делать?»</p>
+      <p style="font-size: 14px; color: var(--text-muted);">Процесс проверки прав аутентифицированного субъекта на выполнение конкретной операции над конкретным ресурсом.</p>
+      <ul style="font-size: 14px; margin-bottom: 0; padding-left: 20px;">
+        <li>Может ли Manager удалить этот отчет?</li>
+        <li>Доступен ли клиентский профиль N пользователю X?</li>
+        <li>Проверка привилегий RBAC / ABAC</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3 id="http-status-codes">Анатомия HTTP: 401 Unauthorized vs 403 Forbidden</h3>
+  <p>Строгое понимание HTTP-статусов критично при составлении баг-репортов и написании проверок в автотестах. Самая распространенная путаница возникает между кодами <code>401</code> и <code>403</code>.</p>
+
+  <div style="overflow-x: auto; margin: 20px 0;">
+    <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 14px;">
+      <thead>
+        <tr style="background: rgba(255, 255, 255, 0.05); border-bottom: 2px solid var(--border-color);">
+          <th style="padding: 12px; font-weight: 600;">Код ответа</th>
+          <th style="padding: 12px; font-weight: 600;">Название RFC</th>
+          <th style="padding: 12px; font-weight: 600;">Причина возникновения</th>
+          <th style="padding: 12px; font-weight: 600;">Заголовки и особенности</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr style="border-bottom: 1px solid var(--border-color);">
+          <td style="padding: 12px;"><code style="color: #f59e0b;">401 Unauthorized</code></td>
+          <td style="padding: 12px;">Unauthenticated</td>
+          <td style="padding: 12px;">Запрос не содержит валидных учётных данных (токен отсутствует, истёк, искажен или неверные логин/пароль).</td>
+          <td style="padding: 12px;">Сервер может вернуть заголовок <code>WWW-Authenticate</code> с предложением схемы аутентификации.</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--border-color);">
+          <td style="padding: 12px;"><code style="color: #ef4444;">403 Forbidden</code></td>
+          <td style="padding: 12px;">Unauthorized / Forbidden</td>
+          <td style="padding: 12px;">Сервер <em>узнал</em> пользователя (аутентификация успешна), но у него <strong>нет прав</strong> на данный ресурс или действие.</td>
+          <td style="padding: 12px;">Повторная отсылка тех же учётных данных не поможет — требуется смена роли или выдача прав.</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--border-color);">
+          <td style="padding: 12px;"><code style="color: #8b5cf6;">429 Too Many Requests</code></td>
+          <td style="padding: 12px;">Rate Limited</td>
+          <td style="padding: 12px;">Превышен лимит запросов для API-ключа, IP-адреса или токена пользователей (защита от Brute Force).</td>
+          <td style="padding: 12px;">Содержит заголовок <code>Retry-After</code> с указанием времени ожидания в секундах.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div style="background: rgba(245, 158, 11, 0.1); border-left: 4px solid #f59e0b; padding: 14px 18px; border-radius: 0 8px 8px 0; margin: 20px 0;">
+    <strong style="color: #f59e0b;">⚠️ Нюанс информационной безопасности:</strong> В некоторых критичных системах (например, финтех или банкинг) при попытке обратиться к чужому ресурсу (IDOR) вместо <code>403 Forbidden</code> специально возвращается <code>404 Not Found</code>. Это делается для того, чтобы злоумышленник не смог подтвердить факт существования объекта с конкретным ID в системе (защита от сканирования IDs).
+  </div>
+</div>
+
+<!-- SECTION 2 -->
+<div class="article-section">
+  <h2 id="basic-auth">Часть 2. Виды авторизации и аутентификации</h2>
+
+  <h3>1. Basic Authentication & API Keys</h3>
+  <p><strong>Basic Auth</strong> — один из самых старых механизмов HTTP-аутентификации. Клиент отправляет заголовок <code>Authorization</code>, в котором передаются имя пользователя и пароль, объединенные двоеточием и закодированные в Base64.</p>
+
+  <div class="code-window">
+    <div class="code-window-header">
+      <div class="window-dots"><span class="dot dot-red"></span><span class="dot dot-yellow"></span><span class="dot dot-green"></span></div>
+      <span class="window-filename">HTTP Basic Auth Header Example</span>
+    </div>
+    <pre><code class="language-http">GET /api/v1/user/profile HTTP/1.1
+Host: api.qalify.ru
+Authorization: Basic YWxleDpzZWNyZXQwMDc=</code></pre>
+  </div>
+
+  <p>Значение <code>YWxleDpzZWNyZXQwMDc=</code> легко декодируется обратно в <code>alex:secret007</code>. Именно поэтому Basic Auth допускается к использованию <strong>исключительно по защищенному протоколу HTTPS</strong>.</p>
+
+  <p><strong>API Keys (API-ключи)</strong> представляет собой уникальную секретную строку (например, <code>qf_live_8f7b9c1d2e3f4a5b6c7d8e9f</code>), выдаваемую разработчику. Ключ передается либо в кастомном заголовке (<code>X-API-Key</code>, <code>X-Auth-Token</code>), либо в качестве query-параметра URL (что менее безопасно из-за логирования в nginx/HAProxy).</p>
+
+  <h3 id="jwt-bearer">2. Bearer Tokens & JWT (JSON Web Tokens)</h3>
+  <p>В современной микросервисной архитектуре стандартом де-факто стал <strong>Bearer Token</strong> (RFC 6750), обычно реализованный в виде **JWT (RFC 7519)**. Токен передается в заголовке <code>Authorization: Bearer &lt;TOKEN&gt;</code>.</p>
+
+  <p>JWT состоит из трех частей, разделенных точками (<code>Header.Payload.Signature</code>):</p>
+  <ul>
+    <li><strong>Header (Заголовок):</strong> Содержит тип токена и алгоритм подписи (например, <code>{"alg": "RS256", "typ": "JWT"}</code>).</li>
+    <li><strong>Payload (Полезная нагрузка / Claims):</strong> Данные о пользователе, его ролях, времени выдачи (<code>iat</code>) и времени тухания (<code>exp</code>).</li>
+    <li><strong>Signature (Цифровая подпись):</strong> Создается путем хеширования Header + Payload секретным ключом сервера (HMAC) или закрытым ключом (RSA/ECDSA).</li>
+  </ul>
+
+  <div style="background: rgba(99, 102, 241, 0.05); border: 1px solid var(--border-color); padding: 16px; border-radius: 8px; margin: 16px 0;">
+    <h4 style="margin-top: 0; color: var(--accent-primary);">🔄 Access vs Refresh Tokens Flow:</h4>
+    <ol style="margin-bottom: 0; padding-left: 20px;">
+      <li><strong>Access Token:</strong> Живет коротко (5–15 минут), передается в каждом API-запросе, проверяется микросервисами автономно без обращения к БД.</li>
+      <li><strong>Refresh Token:</strong> Живет долго (7–30 дней), хранится в защищенном хранилище (HttpOnly Cookie), используется только для получения новой пары токенов на эндпоинте <code>/auth/refresh</code>.</li>
+    </ol>
+  </div>
+
+  <h3 id="cookie-session">3. Cookie & Session-based Auth + CSRF</h3>
+  <p>Традиционный подход для монолитных веб-приложений (Django, Ruby on Rails, Laravel, Spring MVC):</p>
+  <ol>
+    <li>Пользователь отправляет формы логина.</li>
+    <li>Сервер создает сессию в памяти/Redis и отправляет клиенту заголовок <code>Set-Cookie: sessionid=xyz123; HttpOnly; Secure; SameSite=Strict</code>.</li>
+    <li>Браузер автоматически прикрепляет эту Cookie к каждому последующему запросу на этот же домен.</li>
+  </ol>
+
+  <div style="background: rgba(239, 68, 68, 0.1); border-left: 4px solid #ef4444; padding: 14px 18px; border-radius: 0 8px 8px 0; margin: 16px 0;">
+    <strong style="color: #ef4444;">🛡️ Опасность CSRF (Cross-Site Request Forgery):</strong> Так как браузер автоматически подставляет Cookie к запросам, злоумышленник может заставить пользователя перейти на вредоносный сайт, который незаметно отправит <code>POST /account/transfer</code>. Для защиты используются **CSRF-токены** (Header <code>X-CSRF-Token</code>) и атрибут куки <code>SameSite=Strict/Lax</code>.
+  </div>
+
+  <h3 id="oauth2-oidc">4. OAuth 2.0 & OpenID Connect (OIDC)</h3>
+  <p><strong>OAuth 2.0</strong> — это протокол <em>авторизации</em> (выдача прав стороннему приложению без передачи ему логина и пароля, например «Войти через Google/GitHub»). <strong>OpenID Connect (OIDC)</strong> — это тонкая надстройка поверх OAuth 2.0 для <em>аутентификации</em>, добавляющая токен идентификации (<code>ID Token</code> в формате JWT) и эндпоинт <code>/userinfo</code>.</p>
+
+  <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-color); padding: 16px; border-radius: 8px; margin: 16px 0;">
+    <strong>Главные типы Authorization Grants в OAuth 2.0:</strong>
+    <ul>
+      <li><strong>Authorization Code Grant + PKCE (Proof Key for Code Exchange):</strong> Стандарт для Single Page Applications (React/Vue/Angular) и мобильных приложений. Защищает от перехвата авторизационного кода.</li>
+      <li><strong>Client Credentials Grant:</strong> Для коммуникации между серверами (Machine-to-Machine / Service-to-Service).</li>
+      <li><strong>Resource Owner Password Credentials (Legacy):</strong> Передача логина/пароля напрямую в OAuth-сервер (устарел, не рекомендуется RFC).</li>
+    </ul>
+  </div>
+</div>
+
+<!-- SECTION 3 -->
+<div class="article-section">
+  <h2 id="rbac-abac-rebac">Часть 3. Модели управления доступом</h2>
+
+  <p>Когда система проверила подлинность пользователя, в дело вступает движок проверки правил доступа (Access Control Engine). Существуют три основные архитектурные модели:</p>
+
+  <div style="overflow-x: auto; margin: 20px 0;">
+    <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+      <thead>
+        <tr style="background: rgba(255, 255, 255, 0.05); border-bottom: 2px solid var(--border-color);">
+          <th style="padding: 12px; text-align: left;">Модель</th>
+          <th style="padding: 12px; text-align: left;">Принцип работы</th>
+          <th style="padding: 12px; text-align: left;">Пример бизнес-логики</th>
+          <th style="padding: 12px; text-align: left;">Плюсы и минусы</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr style="border-bottom: 1px solid var(--border-color);">
+          <td style="padding: 12px;"><strong>RBAC</strong><br><small style="color: var(--text-muted);">Role-Based</small></td>
+          <td style="padding: 12px;">Права привязываются к <strong>ролям</strong> (Admin, Manager, Editor, User). Пользователям назначаются роли.</td>
+          <td style="padding: 12px;">Только пользователь с ролью <code>FinanceManager</code> может генерировать финансовые отчеты.</td>
+          <td style="padding: 12px;">🟢 Просто настроить.<br>🔴 Взрывное разрастание ролей (Role Explosion).</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--border-color);">
+          <td style="padding: 12px;"><strong>ABAC</strong><br><small style="color: var(--text-muted);">Attribute-Based</small></td>
+          <td style="padding: 12px;">Доступ рассчитывается динамически на основе <strong>атрибутов</strong> субъекта, ресурса, действия и контекста окружения.</td>
+          <td style="padding: 12px;">Врач из <code>Департамента А</code> может смотреть карту пациента в <code>рабочее время (09:00-18:00)</code> с <code>корпоративного IP</code>.</td>
+          <td style="padding: 12px;">🟢 Невероятная гибкость.<br>🔴 Сложность отладки и тестирования.</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--border-color);">
+          <td style="padding: 12px;"><strong>ReBAC</strong><br><small style="color: var(--text-muted);">Relationship-Based</small></td>
+          <td style="padding: 12px;">Доступ определяется <strong>связями в графе объектов</strong> (Google Zanzibar model).</td>
+          <td style="padding: 12px;">Пользователь может редактировать документ, если он является <code>Viewer</code> в <code>Папке</code>, содержащей данный документ.</td>
+          <td style="padding: 12px;">🟢 Идеально для Google Docs/Figma.<br>🔴 Требует специализированных движков (SpiceDB).</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 id="vulnerabilities-bola-bfla">Уязвимости BOLA/IDOR и BFLA: Главный фокус QA</h3>
+  <p>При тестировании авторизации ручной или автоматизированный QA должен проверять не только happy path, но и специфические уязвимости разграничения прав:</p>
+
+  <ul>
+    <li><strong>BOLA / IDOR (Broken Object Level Authorization):</strong> Пользователь UserA с ID <code>101</code> подменяет в URL/Payload ID объекта на <code>102</code> (принадлежащий UserB) и получает доступ к чужим персональным данным.</li>
+    <li><strong>BFLA (Broken Function Level Authorization):</strong> Обычный пользователь меняет HTTP-метод с <code>GET /api/v1/users</code> на <code>POST /api/v1/admin/users/delete</code> и успешно выполняет административную функцию.</li>
+    <li><strong>Horizontal Privilege Escalation (Горизонтальное повышение прав):</strong> Доступ к объектам соседнего пользователя того же уровня.</li>
+    <li><strong>Vertical Privilege Escalation (Вертикальное повышение прав):</strong> Обычный пользователь выполняет действия администратора системы.</li>
+  </ul>
+</div>
+
+<!-- SECTION 4 -->
+<div class="article-section">
+  <h2 id="pytest-architecture">Часть 4. Автоматизация на Python & PyTest</h2>
+
+  <p>Для создания чистого, масштабируемого фреймворка тестирования авторизации построим архитектуру фикстур в <code>conftest.py</code> с использованием библиотеки <code>httpx</code> (или <code>requests</code>).</p>
+
+  <div class="code-window">
+    <div class="code-window-header">
+      <div class="window-dots"><span class="dot dot-red"></span><span class="dot dot-yellow"></span><span class="dot dot-green"></span></div>
+      <span class="window-filename">conftest.py</span>
+    </div>
+    <pre><code class="language-python">import pytest
+import httpx
+import jwt
+import time
+
+BASE_URL = "https://api.qalify.ru"
+JWT_SECRET = "super-secret-key-for-tests-2026"
+
+@pytest.fixture(scope="session")
+def api_client():
+    """Базовый HTTP-клиент с настройкой таймаутов."""
+    with httpx.Client(base_url=BASE_URL, timeout=10.0) as client:
+        yield client
+
+def generate_test_jwt(user_id: int, role: str, exp_seconds: int = 3600, secret: str = JWT_SECRET) -> str:
+    """Вспомогательный генератор токенов для негативного и позитивного тестирования."""
+    payload = {
+        "sub": str(user_id),
+        "role": role,
+        "iat": int(time.time()),
+        "exp": int(time.time()) + exp_seconds
+    }
+    return jwt.encode(payload, secret, algorithm="HS256")
+
+@pytest.fixture
+def admin_headers():
+    """Фикстура с валидным JWT-токеном Администратора."""
+    token = generate_test_jwt(user_id=1, role="admin")
+    return {"Authorization": f"Bearer {token}"}
+
+@pytest.fixture
+def user_a_headers():
+    """Фикстура обычного пользователя A (ID: 101)."""
+    token = generate_test_jwt(user_id=101, role="user")
+    return {"Authorization": f"Bearer {token}"}
+
+@pytest.fixture
+def user_b_headers():
+    """Фикстура обычного пользователя B (ID: 102)."""
+    token = generate_test_jwt(user_id=102, role="user")
+    return {"Authorization": f"Bearer {token}"}</code></pre>
+  </div>
+
+  <h3 id="pytest-auth-tests">10. Примеры автотестов: Basic Auth, JWT и API Keys</h3>
+
+  <div class="code-window">
+    <div class="code-window-header">
+      <div class="window-dots"><span class="dot dot-red"></span><span class="dot dot-yellow"></span><span class="dot dot-green"></span></div>
+      <span class="window-filename">test_auth_mechanisms.py</span>
+    </div>
+    <pre><code class="language-python">import pytest
+import httpx
+import time
+from conftest import generate_test_jwt, JWT_SECRET
+
+class TestBasicAndApiKeyAuth:
+    """Тестирование Basic Auth и API-ключей."""
+
+    def test_basic_auth_success(self, api_client):
+        # Позитивный тест: правильные логин и пароль
+        response = api_client.get("/api/v1/basic-protected", auth=("alex", "secret007"))
+        assert response.status_code == 200
+        assert response.json()["authenticated"] is True
+
+    def test_basic_auth_invalid_credentials(self, api_client):
+        # Негативный тест: неверный пароль -> 401
+        response = api_client.get("/api/v1/basic-protected", auth=("alex", "wrong_password"))
+        assert response.status_code == 401
+        assert "WWW-Authenticate" in response.headers
+
+    def test_api_key_header_success(self, api_client):
+        # Валидный API key в заголовке X-API-Key
+        headers = {"X-API-Key": "qf_test_key_998877"}
+        response = api_client.get("/api/v1/partner/data", headers=headers)
+        assert response.status_code == 200
+
+    def test_api_key_missing_or_invalid(self, api_client):
+        # Отсутствующий API key -> 401
+        response = api_client.get("/api/v1/partner/data")
+        assert response.status_code == 401
+
+
+class TestJwtBearerAuth:
+    """Глубокие проверки безопасности JWT-токенов."""
+
+    def test_jwt_expired_token(self, api_client):
+        # 1. Проверка истекшего токена (exp в прошлом) -> 401
+        expired_token = generate_test_jwt(user_id=101, role="user", exp_seconds=-3600)
+        headers = {"Authorization": f"Bearer {expired_token}"}
+        
+        response = api_client.get("/api/v1/user/profile", headers=headers)
+        assert response.status_code == 401
+        assert "expired" in response.json()["detail"].lower()
+
+    def test_jwt_invalid_signature_tampering(self, api_client):
+        # 2. Проверка подделки цифровой подписи (неверный секретный ключ) -> 401
+        fake_token = generate_test_jwt(user_id=101, role="user", secret="hacker-secret-key")
+        headers = {"Authorization": f"Bearer {fake_token}"}
+        
+        response = api_client.get("/api/v1/user/profile", headers=headers)
+        assert response.status_code == 401
+        assert "invalid signature" in response.json()["detail"].lower()
+
+    def test_jwt_alg_none_attack(self, api_client):
+        # 3. Проверка уязвимости "alg: none" (попытка обойти подпись)
+        payload = {"sub": "101", "role": "admin", "iat": int(time.time()), "exp": int(time.time()) + 3600}
+        # Формируем незащищенный токен без подписи
+        unsigned_token = jwt.encode(payload, key="", algorithm=None)
+        headers = {"Authorization": f"Bearer {unsigned_token}"}
+        
+        response = api_client.get("/api/v1/admin/dashboard", headers=headers)
+        # Сервер ОБЯЗАН отклонить алгоритм none
+        assert response.status_code in (401, 403)</code></pre>
+  </div>
+
+  <h3 id="pytest-rbac-idor-tests">11. Автотесты для RBAC и проверки BOLA / IDOR</h3>
+
+  <div class="code-window">
+    <div class="code-window-header">
+      <div class="window-dots"><span class="dot dot-red"></span><span class="dot dot-yellow"></span><span class="dot dot-green"></span></div>
+      <span class="window-filename">test_access_control_and_idor.py</span>
+    </div>
+    <pre><code class="language-python">import pytest
+
+class TestAccessControlRBAC:
+    """Матричные проверки ролевой модели (RBAC)."""
+
+    @pytest.mark.parametrize("headers, expected_status", [
+        (pytest.lazy_fixture("admin_headers"), 200),     # Admin доступ разрешен
+        (pytest.lazy_fixture("user_a_headers"), 403),    # User A -> 403 Forbidden
+        ({}, 401),                                      # Аноним -> 401 Unauthorized
+    ])
+    def test_admin_delete_user_endpoint(self, api_client, headers, expected_status):
+        """Проверка BFLA: Только Администратор может вызывать DELETE /api/v1/users/99."""
+        response = api_client.delete("/api/v1/users/99", headers=headers)
+        assert response.status_code == expected_status
+
+
+class TestIdorBolaVulnerabilities:
+    """Проверка уязвимостей разграничения объектов (BOLA / IDOR)."""
+
+    def test_user_a_cannot_access_user_b_order(self, api_client, user_a_headers, user_b_headers):
+        """
+        User A (ID 101) пытается прочитать заказ #555, принадлежащий User B (ID 102).
+        """
+        order_id_belonging_to_user_b = 555
+
+        # 1. Подтверждаем, что User B успешно получает свой заказ
+        resp_b = api_client.get(f"/api/v1/orders/{order_id_belonging_to_user_b}", headers=user_b_headers)
+        assert resp_b.status_code == 200
+
+        # 2. АТАКА IDOR: User A запрашивает чужой заказ с валидным токеном User A
+        resp_a = api_client.get(f"/api/v1/orders/{order_id_belonging_to_user_b}", headers=user_a_headers)
+        
+        # БЭКЕНД ДОЛЖЕН ВЕРНУТЬ 403 Forbidden ИЛИ 404 Not Found!
+        assert resp_a.status_code in (403, 404), (
+          f"Уязвимость IDOR! User A получил доступ к чужому заказу {order_id_belonging_to_user_b}. "
+          f"Status Code: {resp_a.status_code}"
+        )</code></pre>
+  </div>
+</div>
+
+<!-- SECTION 5 -->
+<div class="article-section">
+  <h2 id="test-cases-matrix">Часть 5. Исчерпывающая матрица Тест-кейсов</h2>
+
+  <p>Ниже приведена полная эталонная матрица тест-кейсов для комплексного тестирования механизмов аутентификации, авторизации и сессий. Используйте её как чек-лист при составлении тест-плана.</p>
+
+  <div style="overflow-x: auto; margin: 20px 0;">
+    <table style="width: 100%; border-collapse: collapse; font-size: 13px; font-family: sans-serif;">
+      <thead>
+        <tr style="background: rgba(99, 102, 241, 0.15); border-bottom: 2px solid var(--border-color);">
+          <th style="padding: 10px; text-align: left;">ID</th>
+          <th style="padding: 10px; text-align: left;">Модуль</th>
+          <th style="padding: 10px; text-align: left;">Название тест-кейса</th>
+          <th style="padding: 10px; text-align: left;">Входные данные / Шаги</th>
+          <th style="padding: 10px; text-align: left;">Ожидаемый HTTP Status</th>
+          <th style="padding: 10px; text-align: left;">Ожидаемый результат</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr style="border-bottom: 1px solid var(--border-color);">
+          <td style="padding: 10px; font-weight: bold;">TC-AUTH-01</td>
+          <td style="padding: 10px;">Basic Auth</td>
+          <td style="padding: 10px;">Успешная валидация credentials</td>
+          <td style="padding: 10px;">Заголовок <code>Authorization: Basic base64(valid_user:valid_pass)</code></td>
+          <td style="padding: 10px; color: #10b981; font-weight: bold;">200 OK</td>
+          <td style="padding: 10px;">Доступ предоставлен, данные профиля вернулись.</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--border-color);">
+          <td style="padding: 10px; font-weight: bold;">TC-AUTH-02</td>
+          <td style="padding: 10px;">Basic Auth</td>
+          <td style="padding: 10px;">Неверный пароль пользователя</td>
+          <td style="padding: 10px;">Заголовок <code>Authorization: Basic base64(valid_user:wrong_pass)</code></td>
+          <td style="padding: 10px; color: #ef4444; font-weight: bold;">401 Unauthorized</td>
+          <td style="padding: 10px;">Доступ отклонен, заголовок <code>WWW-Authenticate</code> на месте.</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--border-color);">
+          <td style="padding: 10px; font-weight: bold;">TC-JWT-01</td>
+          <td style="padding: 10px;">JWT Bearer</td>
+          <td style="padding: 10px;">Валидный Access Token</td>
+          <td style="padding: 10px;">Заголовок <code>Authorization: Bearer &lt;valid_jwt&gt;</code></td>
+          <td style="padding: 10px; color: #10b981; font-weight: bold;">200 OK</td>
+          <td style="padding: 10px;">Успешная авторизация, payload разобран сервером.</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--border-color);">
+          <td style="padding: 10px; font-weight: bold;">TC-JWT-02</td>
+          <td style="padding: 10px;">JWT Bearer</td>
+          <td style="padding: 10px;">Истёкший токен (Expired token)</td>
+          <td style="padding: 10px;">JWT с claim <code>exp</code> в прошлом времени</td>
+          <td style="padding: 10px; color: #ef4444; font-weight: bold;">401 Unauthorized</td>
+          <td style="padding: 10px;">Сообщение "Token has expired". Требуется refresh.</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--border-color);">
+          <td style="padding: 10px; font-weight: bold;">TC-JWT-03</td>
+          <td style="padding: 10px;">JWT Bearer</td>
+          <td style="padding: 10px;">Подделка подписи (Signature tampering)</td>
+          <td style="padding: 10px;">Модификация payload (роль меняется на admin), подпись чужим ключом</td>
+          <td style="padding: 10px; color: #ef4444; font-weight: bold;">401 Unauthorized</td>
+          <td style="padding: 10px;">Ошибка проверки подписи (Signature verification failed).</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--border-color);">
+          <td style="padding: 10px; font-weight: bold;">TC-JWT-04</td>
+          <td style="padding: 10px;">JWT Bearer</td>
+          <td style="padding: 10px;">Атака с алгоритмом подписи "none"</td>
+          <td style="padding: 10px;">Header <code>{"alg": "none"}</code> без третьей части подписи</td>
+          <td style="padding: 10px; color: #ef4444; font-weight: bold;">401 / 403</td>
+          <td style="padding: 10px;">Сервер должен заблокировать токен с неподдерживаемым алгоритмом.</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--border-color);">
+          <td style="padding: 10px; font-weight: bold;">TC-SESS-01</td>
+          <td style="padding: 10px;">Cookie/Session</td>
+          <td style="padding: 10px;">Проверка атрибутов безопасности Cookie</td>
+          <td style="padding: 10px;">Ответ на <code>POST /auth/login</code></td>
+          <td style="padding: 10px; color: #10b981; font-weight: bold;">200 OK</td>
+          <td style="padding: 10px;"><code>Set-Cookie</code> содержит <code>HttpOnly</code>, <code>Secure</code>, <code>SameSite=Strict/Lax</code>.</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--border-color);">
+          <td style="padding: 10px; font-weight: bold;">TC-SESS-02</td>
+          <td style="padding: 10px;">Cookie/Session</td>
+          <td style="padding: 10px;">Защита от CSRF (Cross-Site Request Forgery)</td>
+          <td style="padding: 10px;">Мутирующий запрос <code>POST /user/update</code> с валидной Cookie, но БЕЗ CSRF-токена</td>
+          <td style="padding: 10px; color: #ef4444; font-weight: bold;">403 Forbidden</td>
+          <td style="padding: 10px;">Запрос заблокирован движком защиты CSRF.</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--border-color);">
+          <td style="padding: 10px; font-weight: bold;">TC-SESS-03</td>
+          <td style="padding: 10px;">Cookie/Session</td>
+          <td style="padding: 10px;">Инвалидация сессии при Logout</td>
+          <td style="padding: 10px;">1. Вызов <code>POST /auth/logout</code><br>2. Повторный запрос с той же Session Cookie</td>
+          <td style="padding: 10px; color: #ef4444; font-weight: bold;">401 Unauthorized</td>
+          <td style="padding: 10px;">Сессия удалена из Redis/БД, повторный доступ невозможен.</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--border-color);">
+          <td style="padding: 10px; font-weight: bold;">TC-KEY-01</td>
+          <td style="padding: 10px;">API Keys</td>
+          <td style="padding: 10px;">Rate Limiting для API-ключа</td>
+          <td style="padding: 10px;">Отправка 101 запроса в минуту при лимите в 100 req/min</td>
+          <td style="padding: 10px; color: #f59e0b; font-weight: bold;">429 Too Many Requests</td>
+          <td style="padding: 10px;">101-й запрос заблокирован, присутствует заголовок <code>Retry-After</code>.</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--border-color);">
+          <td style="padding: 10px; font-weight: bold;">TC-RBAC-01</td>
+          <td style="padding: 10px;">RBAC</td>
+          <td style="padding: 10px;">Недостаточность прав (BFLA)</td>
+          <td style="padding: 10px;">Пользователь с ролью <code>User</code> вызывает <code>DELETE /admin/users/1</code></td>
+          <td style="padding: 10px; color: #ef4444; font-weight: bold;">403 Forbidden</td>
+          <td style="padding: 10px;">Доступ запрещен ролевой моделью.</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--border-color);">
+          <td style="padding: 10px; font-weight: bold;">TC-IDOR-01</td>
+          <td style="padding: 10px;">BOLA / IDOR</td>
+          <td style="padding: 10px;">Чтение чужого объекта (Horizontal Escalation)</td>
+          <td style="padding: 10px;">User A (ID 101) запрашивает <code>GET /api/orders/555</code> (заказ User B)</td>
+          <td style="padding: 10px; color: #ef4444; font-weight: bold;">403 / 404</td>
+          <td style="padding: 10px;">Система блокирует доступ к чужому документу.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 id="qa-checklist">13. Чек-лист безопасности для QA в 2026 году</h3>
+  <div style="background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.3); padding: 18px; border-radius: 10px; margin: 20px 0;">
+    <h4 style="margin-top: 0; color: #10b981;">✅ Финальный чек-лист автоматизатора:</h4>
+    <ul style="margin-bottom: 0; padding-left: 20px;">
+      <li>[ ] Проверены все варианты HTTP-статусов: <code>401</code> при отсутствии/невалидности токена и <code>403</code> при недостатке ролей/прав.</li>
+      <li>[ ] Для JWT протестированы кейсы с истекшим <code>exp</code>, неверным секретом и поддельной полезной нагрузкой.</li>
+      <li>[ ] Настроены автотесты на BOLA/IDOR для всех эндпоинтов, принимающих `id` ресурсов в URL и body.</li>
+      <li>[ ] Все сессионные куки имеют флаги <code>HttpOnly</code>, <code>Secure</code>, <code>SameSite=Strict/Lax</code>.</li>
+      <li>[ ] Для внешних интеграций на базе API-ключей протестирован Rate Limiting (ответ <code>429</code>).</li>
+    </ul>
+  </div>
+</div>
