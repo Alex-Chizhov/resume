@@ -89,14 +89,14 @@
   },
   {
     "id": 9,
-    "slug": "visual-regression-testing-playwright",
-    "title": "Визуальное регрессионное тестирование: Pixelmatch и Playwright Screenshots",
-    "image": "https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?auto=format&fit=crop&w=800&q=80",
-    "category": "Автоматизация",
-    "date": "05 июля 2026",
-    "readTime": "5 мин",
-    "excerpt": "Настройка сборок эталонных скриншотов, порог чувствительности (threshold) и решение проблем со сглаживанием шрифтов на разных ОС.",
-    "path": "articles/visual-regression-testing-playwright"
+    "slug": "python-interview-algorithms",
+    "title": "Базовые алгоритмические задачи на собеседовании: Практическое руководство по Live Coding на Python",
+    "image": "https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=800&q=80",
+    "category": "Python & Алгоритмы",
+    "date": "02 августа 2026",
+    "readTime": "25 мин",
+    "excerpt": "Исчерпывающее практическое руководство по алгоритмам и Live Coding на Python: 12 ключевых задач на строки, массивы, хэш-таблицы, два указателя, стек, скользящее окно и бинарный поиск с оценкой Big O и разъяснениями для интервью.",
+    "path": "articles/python-interview-algorithms"
   },
   {
     "id": 10,

@@ -1,0 +1,664 @@
+<div class="article-lead">
+  Алгоритмическая секция (Live Coding) — неотъемлемый этап собеседования на роли <strong>Python-разработчиков, QA Automation инженеров (SDET) и Backend-специалистов</strong> в ведущих IT-компаниях (Яндекс, Авито, Ozon, Т-Банк, VK и международный BigTech). Главная цель интервьюера на таком собеседовании — оценить не просто умение писать код без IDE с автодополнением, а структуру вашего мышления, понимание алгоритмической сложности (Big-O), чистый стиль кода на Python и умение обрабатывать крайние случаи (edge cases). В этом исчерпывающем руководстве мы подробно разберем <strong>12 самых частых алгоритмических задач</strong> с собеседований, тактику ведения диалога с интервьюером и эффективные решения на Python с оценками по времени и памяти.
+</div>
+
+<!-- Table of Contents (TOC) -->
+<div class="toc-container">
+  <div class="toc-title">📑 Оглавление статьи</div>
+  <div class="toc-grid">
+    
+    <div class="toc-section-block">
+      <span class="toc-section-label">Часть 1. Методология собеседования</span>
+      <ul class="toc-list">
+        <li><a href="#live-coding-rules">1. 5 Золотых правил Live Coding</a></li>
+        <li><a href="#big-o-cheat-sheet">2. Big-O Чит-код для Python</a></li>
+      </ul>
+    </div>
+
+    <div class="toc-section-block">
+      <span class="toc-section-label">Часть 2. Строки и Символы</span>
+      <ul class="toc-list">
+        <li><a href="#task-valid-palindrome">3. Задача 1: Проверка на палиндром (Valid Palindrome)</a></li>
+        <li><a href="#task-valid-anagram">4. Задача 2: Проверка на анаграмму (Valid Anagram)</a></li>
+        <li><a href="#task-string-compression">5. Задача 3: Сжатие строки (RLE Encoding)</a></li>
+      </ul>
+    </div>
+
+    <div class="toc-section-block">
+      <span class="toc-section-label">Часть 3. Массивы и Хэш-таблицы</span>
+      <ul class="toc-list">
+        <li><a href="#task-two-sum">6. Задача 4: Сумма двух чисел (Two Sum)</a></li>
+        <li><a href="#task-single-number">7. Задача 5: Единственное число (Single Number)</a></li>
+        <li><a href="#task-move-zeroes">8. Задача 6: Перемещение нулей (Move Zeroes)</a></li>
+        <li><a href="#task-intersection">9. Задача 7: Пересечение массивов (Intersection)</a></li>
+      </ul>
+    </div>
+
+    <div class="toc-section-block">
+      <span class="toc-section-label">Часть 4. Указатели, Окна и Стек</span>
+      <ul class="toc-list">
+        <li><a href="#task-max-subarray-k">10. Задача 8: Скользящее окно (Max Subarray Sum K)</a></li>
+        <li><a href="#task-merge-sorted">11. Задача 9: Слияние отсортированных массивов</a></li>
+        <li><a href="#task-valid-parentheses">12. Задача 10: Валидные скобки (Valid Parentheses)</a></li>
+      </ul>
+    </div>
+
+    <div class="toc-section-block">
+      <span class="toc-section-label">Часть 5. Поиск и Структуры</span>
+      <ul class="toc-list">
+        <li><a href="#task-binary-search">13. Задача 11: Бинарный поиск (Binary Search)</a></li>
+        <li><a href="#task-reverse-linked-list">14. Задача 12: Разворот списка (Reverse Linked List)</a></li>
+        <li><a href="#dry-run-checklist">15. Итоговый чек-лист отладки на собеседовании</a></li>
+      </ul>
+    </div>
+
+  </div>
+</div>
+
+<!-- SECTION 1: LIVE CODING RULES -->
+<div class="article-section">
+  <h2 id="live-coding-rules">Часть 1. 5 Золотых правил прохождения Live Coding</h2>
+  <p>Решение алгоритмической задачи на собеседовании отличается от написания кода на работе. Интервьюеру важен ваш путь решения, а не только зеленые тесты. Следуйте 5 ключевым шагам:</p>
+
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin: 20px 0;">
+    <div style="background: rgba(99, 102, 241, 0.08); border: 1px solid rgba(99, 102, 241, 0.3); padding: 18px; border-radius: 12px;">
+      <h3 style="color: #6366f1; margin-top: 0; font-size: 16px;">1. 🗣️ Рассуждайте вслух (Think Aloud)</h3>
+      <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 0;">Никогда не молчите более 15–20 секунд. Если погрузились в мысли, проговорите: <em>«Сейчас я думаю над тем, как снизить сложность с O(N²) до O(N)...»</em>.</p>
+    </div>
+
+    <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.3); padding: 18px; border-radius: 12px;">
+      <h3 style="color: #10b981; margin-top: 0; font-size: 16px;">2. ❓ Задавайте уточняющие вопросы</h3>
+      <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 0;">Выясните границы входных данных: может ли быть пустой массив? Учитывается ли регистр символов? Могут ли быть отрицательные числа? Помещаются ли данные в память?</p>
+    </div>
+
+    <div style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.3); padding: 18px; border-radius: 12px;">
+      <h3 style="color: #f59e0b; margin-top: 0; font-size: 16px;">3. 🐢 Озвучьте брутфорс, затем оптимизируйте</h3>
+      <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 0;">Сначала коротко озвучьте наивное решение в лоб (например, через вложенные циклы за O(N²)), покажите, что задача понята, а затем предложите оптимизацию через хэш-таблицу или два указателя.</p>
+    </div>
+
+    <div style="background: rgba(6, 182, 212, 0.08); border: 1px solid rgba(6, 182, 212, 0.3); padding: 18px; border-radius: 12px;">
+      <h3 style="color: #06b6d4; margin-top: 0; font-size: 16px;">4. 🧹 Пишите чистый Pythonic-код</h3>
+      <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 0;">Используйте понятные имена переменных (<code>left</code>, <code>right</code>, <code>seen_map</code> вместо <code>a</code>, <code>b</code>, <code>tmp</code>), придерживайтесь PEP 8 и избегайте спагетти-кода.</p>
+    </div>
+  </div>
+
+  <h2 id="big-o-cheat-sheet">Часть 2. Чит-код: Алгоритмическая сложность операций в Python</h2>
+  <p>Чтобы быстро аргументировать выбор структуры данных перед интервьюером, необходимо до автоматизма знать временно́й эквивалент внутренних операций Python:</p>
+
+  <div style="overflow-x: auto; margin: 20px 0;">
+    <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 14px;">
+      <thead>
+        <tr style="background: rgba(255, 255, 255, 0.05); border-bottom: 2px solid var(--border-color);">
+          <th style="padding: 12px; font-weight: 600;">Структура данных</th>
+          <th style="padding: 12px; font-weight: 600;">Операция</th>
+          <th style="padding: 12px; font-weight: 600;">Сложность по времени</th>
+          <th style="padding: 12px; font-weight: 600;">Комментарий / Причина</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr style="border-bottom: 1px solid var(--border-color);">
+          <td style="padding: 12px;"><code>list</code> (Список)</td>
+          <td style="padding: 12px;"><code>append()</code>, <code>pop()</code> (с конца)</td>
+          <td style="padding: 12px;"><code style="color: #10b981;">O(1) amortized</code></td>
+          <td style="padding: 12px;">Добавление/удаление последнего элемента динамического массива.</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--border-color);">
+          <td style="padding: 12px;"><code>list</code> (Список)</td>
+          <td style="padding: 12px;"><code>pop(0)</code>, <code>insert(0, x)</code></td>
+          <td style="padding: 12px;"><code style="color: #f43f5e;">O(N)</code></td>
+          <td style="padding: 12px;">Требуется сдвиг всех N элементов массива влево/вправо!</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--border-color);">
+          <td style="padding: 12px;"><code>list</code> (Список)</td>
+          <td style="padding: 12px;">Поиск <code>x in list</code></td>
+          <td style="padding: 12px;"><code style="color: #f43f5e;">O(N)</code></td>
+          <td style="padding: 12px;">Линейный сканирующий проход по всем элементам.</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--border-color);">
+          <td style="padding: 12px;"><code>dict</code> / <code>set</code></td>
+          <td style="padding: 12px;">Поиск/Вставка/Удаление <code>x in s</code></td>
+          <td style="padding: 12px;"><code style="color: #10b981;">O(1) average</code></td>
+          <td style="padding: 12px;">Хэш-таблица обеспечивает константный доступ по хэш-ключу.</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--border-color);">
+          <td style="padding: 12px;"><code>collections.deque</code></td>
+          <td style="padding: 12px;"><code>popleft()</code>, <code>appendleft()</code></td>
+          <td style="padding: 12px;"><code style="color: #10b981;">O(1)</code></td>
+          <td style="padding: 12px;">Двусвязный список (для очередей и FIFO задач).</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- SECTION 3: STRINGS -->
+<div class="article-section">
+  <h2>Часть 3. Задачи на Строки и Символы (String Manipulation)</h2>
+
+  <!-- TASK 1 -->
+  <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 24px; margin-bottom: 30px;" id="task-valid-palindrome">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+      <h3 style="margin: 0; font-size: 20px; color: var(--text-primary);">📌 Задача 1: Проверка на палиндром (Valid Palindrome)</h3>
+      <span style="background: rgba(16, 185, 129, 0.15); color: #10b981; padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: 600;">Easy / Часто встречается</span>
+    </div>
+    
+    <p><strong>Условие:</strong> Дана строка <code>s</code>. Необходимо определить, является ли она палиндромом (читается одинаково слева направо и справа налево), учитывая только буквенно-цифровые символы и игнорируя регистр букв.</p>
+
+    <div style="background: rgba(255, 255, 255, 0.03); border-left: 4px solid var(--accent-primary); padding: 12px 16px; margin: 16px 0; font-size: 14px;">
+      <strong>Пример 1:</strong> <code>s = "A man, a plan, a canal: Panama"</code> &rarr; <code>True</code> ("amanaplanacanalpanama")<br>
+      <strong>Пример 2:</strong> <code>s = "race a car"</code> &rarr; <code>False</code> ("raceacar" != "racecara")
+    </div>
+
+    <h4>💡 Стратегия на собеседовании:</h4>
+    <p>Наивное решение — отфильтровать строку через генератор списков или <code>isalnum()</code>, привести к нижнему регистру и сравнить с развернутой копией <code>cleaned == cleaned[::-1]</code>. Это требует $O(N)$ по времени и $O(N)$ по памяти под новую строку. <strong>Оптимальный путь</strong> — использовать паттерн <em>Двух указателей (Two Pointers)</em>, движущихся с краев к центру. Это позволит решить задачу за $O(N)$ по времени и $O(1)$ по дополнительной памяти!</p>
+
+    <h4>🐍 Оптимальное решение на Python:</h4>
+<pre><code class="language-python">def is_palindrome(s: str) -> bool:
+    """
+    Проверяет, является ли строка палиндромом, используя подход двух указателей.
+    Временная сложность: O(N) — проходим по строке 1 раз.
+    Пространственная сложность: O(1) — не создаем дополнительных строк.
+    """
+    left = 0
+    right = len(s) - 1
+
+    while left < right:
+        # Пропускаем символы, не являющиеся буквами или цифрами слева
+        while left < right and not s[left].isalnum():
+            left += 1
+        
+        # Пропускаем небуквенно-цифровые символы справа
+        while left < right and not s[right].isalnum():
+            right -= 1
+
+        # Сравниваем символы в нижнем регистре
+        if s[left].lower() != s[right].lower():
+            return False
+
+        # Сдвигаем оба указателя к центру
+        left += 1
+        right -= 1
+
+    return True
+
+# Быстрые тесты для проверки
+assert is_palindrome("A man, a plan, a canal: Panama") == True
+assert is_palindrome("race a car") == False
+assert is_palindrome(" ") == True  # Пустая строка — валидный палиндром
+print("✅ Задача 1 успешно прошла тесты!")
+</code></pre>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; font-size: 13px;">
+      <div style="background: rgba(16, 185, 129, 0.05); padding: 10px; border-radius: 8px; border: 1px solid rgba(16, 185, 129, 0.2);">
+        <strong>⏱️ Время:</strong> <code>O(N)</code> (проход по каждому символу не более 2 раз)
+      </div>
+      <div style="background: rgba(6, 182, 212, 0.05); padding: 10px; border-radius: 8px; border: 1px solid rgba(6, 182, 212, 0.2);">
+        <strong>💾 Память:</strong> <code>O(1)</code> (только переменные указателей)
+      </div>
+    </div>
+  </div>
+
+  <!-- TASK 2 -->
+  <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 24px; margin-bottom: 30px;" id="task-valid-anagram">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+      <h3 style="margin: 0; font-size: 20px; color: var(--text-primary);">📌 Задача 2: Проверка на анаграмму (Valid Anagram)</h3>
+      <span style="background: rgba(16, 185, 129, 0.15); color: #10b981; padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: 600;">Easy / Часто встречается</span>
+    </div>
+
+    <p><strong>Условие:</strong> Даны две строки <code>s</code> и <code>t</code>. Напишите функцию, которая возвращает <code>True</code>, если <code>t</code> является анаграммой строки <code>s</code> (состоит из тех же букв в том же количестве), и <code>False</code> в противном случае.</p>
+
+    <h4>💡 Стратегия на собеседовании:</h4>
+    <p>Первым делом проверьте равенство длин <code>len(s) != len(t)</code>. Сортировка обеих строк <code>sorted(s) == sorted(t)</code> занимает $O(N \log N)$ времени. Однако оптимальное решение — подсчет частоты символов через <strong>хэш-таблицу (словарь)</strong> за $O(N)$ времени.</p>
+
+    <h4>🐍 Оптимальное решение на Python:</h4>
+<pre><code class="language-python">from collections import Counter
+
+def is_anagram(s: str, t: str) -> bool:
+    """
+    Проверяет, являются ли строки анаграммами через подсчет частот.
+    Временная сложность: O(N)
+    Пространственная сложность: O(K), где K — количество уникальных символов (<= 26 для латиницы).
+    """
+    if len(s) != len(t):
+        return False
+
+    # Counter(s) создает словарь частот символов {char: count}
+    return Counter(s) == Counter(t)
+
+# Альтернативная ручная реализация на словаре (полезно показать интервьюеру)
+def is_anagram_manual(s: str, t: str) -> bool:
+    if len(s) != len(t):
+        return False
+        
+    counts = {}
+    for char in s:
+        counts[char] = counts.get(char, 0) + 1
+        
+    for char in t:
+        if char not in counts or counts[char] == 0:
+            return False
+        counts[char] -= 1
+        
+    return True
+
+assert is_anagram("anagram", "nagaram") == True
+assert is_anagram("rat", "car") == False
+print("✅ Задача 2 успешно прошла тесты!")
+</code></pre>
+  </div>
+
+  <!-- TASK 3 -->
+  <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 24px; margin-bottom: 30px;" id="task-string-compression">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+      <h3 style="margin: 0; font-size: 20px; color: var(--text-primary);">📌 Задача 3: Сжатие строки (Run-Length Encoding / RLE)</h3>
+      <span style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: 600;">Medium-Easy / Классика</span>
+    </div>
+
+    <p><strong>Условие:</strong> Напишите функцию для простейшего сжатия строк на основе подсчета подряд идущих повторов символов. Пример: строка <code>aabcccccaaa</code> превращается в <code>a2b1c5a3</code>. Если длина сжатой строки больше или равна длине исходной, вернуть исходную строку.</p>
+
+    <h4>🐍 Оптимальное решение на Python:</h4>
+<pre><code class="language-python">def compress_string(s: str) -> str:
+    """
+    RLE сжатие строки за один проход.
+    Используется список (буфер) для предотвращения O(N^2) конкатенации строк.
+    """
+    if not s:
+        return ""
+
+    compressed = []
+    current_char = s[0]
+    count = 1
+
+    # Проходим со 2-го символа до конца
+    for char in s[1:]:
+        if char == current_char:
+            count += 1
+        else:
+            compressed.append(f"{current_char}{count}")
+            current_char = char
+            count = 1
+
+    # Добавляем последнюю группу символов
+    compressed.append(f"{current_char}{count}")
+
+    result = "".join(compressed)
+    # Возвращаем сжатую строку только если она реально короче исходной
+    return result if len(result) < len(s) else s
+
+assert compress_string("aabcccccaaa") == "a2b1c5a3"
+assert compress_string("abc") == "abc"  # "a1b1c1" длиннее чем "abc"
+print("✅ Задача 3 успешно прошла тесты!")
+</code></pre>
+  </div>
+</div>
+
+<!-- SECTION 4: ARRAYS & HASHMAPS -->
+<div class="article-section">
+  <h2>Часть 4. Задачи на Массивы и Хэш-таблицы (Arrays & Hash Maps)</h2>
+
+  <!-- TASK 4 -->
+  <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 24px; margin-bottom: 30px;" id="task-two-sum">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+      <h3 style="margin: 0; font-size: 20px; color: var(--text-primary);">📌 Задача 4: Сумма двух чисел (Two Sum)</h3>
+      <span style="background: rgba(16, 185, 129, 0.15); color: #10b981; padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: 600;">№1 На Собеседованиях в Мире</span>
+    </div>
+
+    <p><strong>Условие:</strong> Дан массив целых чисел <code>nums</code> и целевое число <code>target</code>. Напишите функцию, которая возвращает индексы двух чисел из массива таких, что их сумма равна <code>target</code>. Гарантируется, что существует ровно одно решение.</p>
+
+    <h4>💡 Стратегия на собеседовании:</h4>
+    <p>Двойной вложенный цикл дает $O(N^2)$ по времени. Для оптимизации используем <strong>хэш-таблицу (словарь в Python)</strong>: при проходе по элементу <code>num</code> мы вычисляем разность <code>complement = target - num</code>. Если эта разность уже есть в словаре, мы нашли пару за $O(1)$ на каждый элемент!</p>
+
+    <h4>🐍 Оптимальное решение на Python:</h4>
+<pre><code class="language-python">def two_sum(nums: list[int], target: int) -> list[int]:
+    """
+    Поиск индексов пары чисел с заданной суммой target за 1 проход.
+    Временная сложность: O(N)
+    Пространственная сложность: O(N)
+    """
+    seen = {}  # Словарь вида {число: его_индекс}
+
+    for i, num in enumerate(nums):
+        complement = target - num
+        # Если разность уже встретилась раньше — возвращаем результат
+        if complement in seen:
+            return [seen[complement], i]
+        # Иначе запоминаем текущее число и его индекс
+        seen[num] = i
+
+    return []
+
+assert two_sum([2, 7, 11, 15], 9) == [0, 1]
+assert two_sum([3, 2, 4], 6) == [1, 2]
+assert two_sum([3, 3], 6) == [0, 1]
+print("✅ Задача 4 успешно прошла тесты!")
+</code></pre>
+  </div>
+
+  <!-- TASK 5 -->
+  <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 24px; margin-bottom: 30px;" id="task-single-number">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+      <h3 style="margin: 0; font-size: 20px; color: var(--text-primary);">📌 Задача 5: Поиск единственного числа (Single Number)</h3>
+      <span style="background: rgba(16, 185, 129, 0.15); color: #10b981; padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: 600;">Easy / Bit Manipulation</span>
+    </div>
+
+    <p><strong>Условие:</strong> Дан непустой массив целых чисел <code>nums</code>, в котором каждый элемент встречается ровно <strong>дважды</strong>, кроме одного элемента, который встречается ровно один раз. Найдите этот элемент. Ограничения: $O(N)$ время и $O(1)$ память!</p>
+
+    <h4>💡 Стратегия на собеседовании:</h4>
+    <p>Подсчет частот через <code>dict</code> или <code>set</code> требует $O(N)$ дополнительной памяти. Но требование $O(1)$ по памяти идеально решается через **побитовую операцию XOR (исключающее ИЛИ <code>^</code>)**:</p>
+    <ul style="font-size: 14px;">
+      <li><code>a ^ a = 0</code> (любое число XOR с самим собой дает 0)</li>
+      <li><code>a ^ 0 = a</code> (число XOR с нулем остается собой)</li>
+      <li>Операция коммутативна: все парные числа взаимно уничтожатся до 0, останется только уникальное число!</li>
+    </ul>
+
+    <h4>🐍 Оптимальное решение на Python:</h4>
+<pre><code class="language-python">def single_number(nums: list[int]) -> int:
+    """
+    Поиск уникального числа с использованием битовой операции XOR.
+    Временная сложность: O(N)
+    Пространственная сложность: O(1)
+    """
+    result = 0
+    for num in nums:
+        result ^= num  # XOR накопление
+    return result
+
+assert single_number([2, 2, 1]) == 1
+assert single_number([4, 1, 2, 1, 2]) == 4
+print("✅ Задача 5 успешно прошла тесты!")
+</code></pre>
+  </div>
+
+  <!-- TASK 6 -->
+  <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 24px; margin-bottom: 30px;" id="task-move-zeroes">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+      <h3 style="margin: 0; font-size: 20px; color: var(--text-primary);">📌 Задача 6: Перемещение нулей в конец (Move Zeroes)</h3>
+      <span style="background: rgba(16, 185, 129, 0.15); color: #10b981; padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: 600;">Easy / In-Place</span>
+    </div>
+
+    <p><strong>Условие:</strong> Дан массив <code>nums</code>. Переместите все нули в конец массива, сохранив относительный порядок ненулевых элементов. Модификация должна происходить <strong>in-place</strong> без создания копии массива.</p>
+
+    <h4>🐍 Оптимальное решение на Python:</h4>
+<pre><code class="language-python">def move_zeroes(nums: list[int]) -> None:
+    """
+    Модифицирует список in-place, перемещая нули в конец через 2 указателя.
+    Временная сложность: O(N)
+    Пространственная сложность: O(1)
+    """
+    last_non_zero = 0  # Указатель позиции для следующего ненулевого элемента
+
+    for current in range(len(nums)):
+        if nums[current] != 0:
+            # Меняем местами элементы только при необходимости
+            nums[last_non_zero], nums[current] = nums[current], nums[last_non_zero]
+            last_non_zero += 1
+
+# Проверка
+test_arr = [0, 1, 0, 3, 12]
+move_zeroes(test_arr)
+assert test_arr == [1, 3, 12, 0, 0]
+print("✅ Задача 6 успешно прошла тесты!")
+</code></pre>
+  </div>
+
+  <!-- TASK 7 -->
+  <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 24px; margin-bottom: 30px;" id="task-intersection">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+      <h3 style="margin: 0; font-size: 20px; color: var(--text-primary);">📌 Задача 7: Пересечение двух массивов (Intersection)</h3>
+      <span style="background: rgba(16, 185, 129, 0.15); color: #10b981; padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: 600;">Easy / Set Logic</span>
+    </div>
+
+    <p><strong>Условие:</strong> Даны два массива целых чисел <code>nums1</code> и <code>nums2</code>. Верните массив их пересечения. Каждый элемент в результате должен быть уникальным.</p>
+
+    <h4>🐍 Оптимальное решение на Python:</h4>
+<pre><code class="language-python">def intersection(nums1: list[int], nums2: list[int]) -> list[int]:
+    """
+    Пересечение массивов с использованием множств (set).
+    Временная сложность: O(N + M)
+    Пространственная сложность: O(N + M)
+    """
+    # Преобразуем оба списка в множества и находим их пересечение через оператор &
+    return list(set(nums1) & set(nums2))
+
+assert sorted(intersection([1, 2, 2, 1], [2, 2])) == [2]
+assert sorted(intersection([4, 9, 5], [9, 4, 9, 8, 4])) == [4, 9]
+print("✅ Задача 7 успешно прошла тесты!")
+</code></pre>
+  </div>
+</div>
+
+<!-- SECTION 5: POINTERS, WINDOW, STACK -->
+<div class="article-section">
+  <h2>Часть 5. Указатели, Скользящее окно и Стек</h2>
+
+  <!-- TASK 8 -->
+  <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 24px; margin-bottom: 30px;" id="task-max-subarray-k">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+      <h3 style="margin: 0; font-size: 20px; color: var(--text-primary);">📌 Задача 8: Максимальная сумма подмассива длины K (Sliding Window)</h3>
+      <span style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: 600;">Medium / Паттерн Sliding Window</span>
+    </div>
+
+    <p><strong>Условие:</strong> Дан массив чисел <code>nums</code> и целое число <code>k</code>. Найдите максимальную сумму непрерывного подмассива фиксированной длины <code>k</code>.</p>
+
+    <h4>💡 Стратегия на собеседовании:</h4>
+    <p>Вычисление суммы каждого подмассива с нуля занимает $O(N \cdot K)$ времени. <strong>Паттерн Скользящее окно (Sliding Window)</strong> позволяет сдвигать окно шириной $K$ вправо за $O(1)$: вычитаем уходящий слева элемент <code>nums[i - k]</code> и прибавляем входящий справа элемент <code>nums[i]</code>!</p>
+
+    <h4>🐍 Оптимальное решение на Python:</h4>
+<pre><code class="language-python">def max_sub_array_of_size_k(nums: list[int], k: int) -> int:
+    """
+    Поиск макс. суммы подмассива размера K методом скользящего окна.
+    Временная сложность: O(N)
+    Пространственная сложность: O(1)
+    """
+    if not nums or k <= 0 or k > len(nums):
+        return 0
+
+    # Считаем сумму первого окна размера K
+    current_window_sum = sum(nums[:k])
+    max_sum = current_window_sum
+
+    # Сдвигаем окно от k-го элемента до конца массива
+    for i in range(k, len(nums)):
+        current_window_sum += nums[i] - nums[i - k]
+        max_sum = max(max_sum, current_window_sum)
+
+    return max_sum
+
+assert max_sub_array_of_size_k([2, 1, 5, 1, 3, 2], 3) == 9  # Подмассив [5, 1, 3]
+assert max_sub_array_of_size_k([2, 3, 4, 1, 5], 2) == 7     # Подмассив [3, 4]
+print("✅ Задача 8 успешно прошла тесты!")
+</code></pre>
+  </div>
+
+  <!-- TASK 9 -->
+  <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 24px; margin-bottom: 30px;" id="task-merge-sorted">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+      <h3 style="margin: 0; font-size: 20px; color: var(--text-primary);">📌 Задача 9: Слияние двух отсортированных массивов</h3>
+      <span style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: 600;">Medium / Two Pointers Backwards</span>
+    </div>
+
+    <p><strong>Условие:</strong> Даны два отсортированных массива <code>nums1</code> и <code>nums2</code>. Массив <code>nums1</code> имеет размер $m + n$, где первые $m$ элементов содержат значения, а последние $n$ элементов заполнены нулями. Слейте <code>nums2</code> в <code>nums1</code> так, чтобы получился единый отсортированный массив in-place.</p>
+
+    <h4>🐍 Оптимальное решение на Python:</h4>
+<pre><code class="language-python">def merge_sorted_arrays(nums1: list[int], m: int, nums2: list[int], n: int) -> None:
+    """
+    Слияние с конца (от наибольших элементов к наименьшим).
+    Временная сложность: O(m + n)
+    Пространственная сложность: O(1)
+    """
+    p1 = m - 1          # Указатель на последний реальный элемент в nums1
+    p2 = n - 1          # Указатель на последний элемент в nums2
+    p_write = m + n - 1 # Указатель записи с конца массива nums1
+
+    while p1 >= 0 and p2 >= 0:
+        if nums1[p1] > nums2[p2]:
+            nums1[p_write] = nums1[p1]
+            p1 -= 1
+        else:
+            nums1[p_write] = nums2[p2]
+            p2 -= 1
+        p_write -= 1
+
+    # Если в nums2 еще остались элементы — дописываем их
+    while p2 >= 0:
+        nums1[p_write] = nums2[p2]
+        p2 -= 1
+        p_write -= 1
+
+# Проверка
+arr1 = [1, 2, 3, 0, 0, 0]
+merge_sorted_arrays(arr1, 3, [2, 5, 6], 3)
+assert arr1 == [1, 2, 2, 3, 5, 6]
+print("✅ Задача 9 успешно прошла тесты!")
+</code></pre>
+  </div>
+
+  <!-- TASK 10 -->
+  <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 24px; margin-bottom: 30px;" id="task-valid-parentheses">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+      <h3 style="margin: 0; font-size: 20px; color: var(--text-primary);">📌 Задача 10: Валидация скобочной последовательности (Valid Parentheses)</h3>
+      <span style="background: rgba(16, 185, 129, 0.15); color: #10b981; padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: 600;">Easy-Medium / Stack</span>
+    </div>
+
+    <p><strong>Условие:</strong> Дана строка <code>s</code>, содержащая только скобки <code>'('</code>, <code>')'</code>, <code>'{'</code>, <code>'}'</code>, <code>'['</code> и <code>']'</code>. Определите, является ли последовательность правильной (каждая открывающая скобка закрывается соответствующей закрывающей скобкой в правильном порядке).</p>
+
+    <h4>🐍 Оптимальное решение на Python:</h4>
+<pre><code class="language-python">def is_valid_parentheses(s: str) -> bool:
+    """
+    Проверка скобок через LIFO Стек.
+    Временная сложность: O(N)
+    Пространственная сложность: O(N)
+    """
+    stack = []
+    # Карта пар: ключ — закрывающая скобка, значение — ожидаемая открывающая
+    bracket_map = {')': '(', '}': '{', ']': '['}
+
+    for char in s:
+        if char in bracket_map:
+            # Если попалась закрывающая скобка — достаем верхний элемент из стека
+            top_element = stack.pop() if stack else '#'
+            if bracket_map[char] != top_element:
+                return False
+        else:
+            # Если открывающая скобка — кладем в стек
+            stack.append(char)
+
+    # После обработки всех символов стек должен остаться пустым
+    return len(stack) == 0
+
+assert is_valid_parentheses("()") == True
+assert is_valid_parentheses("()[]{}") == True
+assert is_valid_parentheses("(]") == False
+assert is_valid_parentheses("([)]") == False
+assert is_valid_parentheses("{[]}") == True
+print("✅ Задача 10 успешно прошла тесты!")
+</code></pre>
+  </div>
+</div>
+
+<!-- SECTION 6: SEARCH & SEARCH STRUCTURES -->
+<div class="article-section">
+  <h2>Часть 6. Алгоритмы Поиска и Структуры Данных</h2>
+
+  <!-- TASK 11 -->
+  <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 24px; margin-bottom: 30px;" id="task-binary-search">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+      <h3 style="margin: 0; font-size: 20px; color: var(--text-primary);">📌 Задача 11: Бинарный поиск (Binary Search)</h3>
+      <span style="background: rgba(16, 185, 129, 0.15); color: #10b981; padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: 600;">Easy / Fundamental O(log N)</span>
+    </div>
+
+    <p><strong>Условие:</strong> Дан отсортированный по возрастанию массив целых чисел <code>nums</code> и искомое значение <code>target</code>. Напишите функцию поиска <code>target</code> в <code>nums</code>. Если <code>target</code> существует, верните его индекс, иначе верните <code>-1</code>. Сложность: $O(\log N)$.</p>
+
+    <h4>🐍 Оптимальное решение на Python:</h4>
+<pre><code class="language-python">def binary_search(nums: list[int], target: int) -> int:
+    """
+    Классический итеративный бинарный поиск.
+    Временная сложность: O(log N)
+    Пространственная сложность: O(1)
+    """
+    left = 0
+    right = len(nums) - 1
+
+    while left <= right:
+        # Безопасное вычисление центрального индекса
+        mid = left + (right - left) // 2
+
+        if nums[mid] == target:
+            return mid
+        elif nums[mid] < target:
+            left = mid + 1   # Искомый элемент в правой половине
+        else:
+            right = mid - 1  # Искомый элемент в левой половине
+
+    return -1
+
+assert binary_search([-1, 0, 3, 5, 9, 12], 9) == 4
+assert binary_search([-1, 0, 3, 5, 9, 12], 2) == -1
+print("✅ Задача 11 успешно прошла тесты!")
+</code></pre>
+  </div>
+
+  <!-- TASK 12 -->
+  <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 24px; margin-bottom: 30px;" id="task-reverse-linked-list">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+      <h3 style="margin: 0; font-size: 20px; color: var(--text-primary);">📌 Задача 12: Разворот односвязного списка (Reverse Linked List)</h3>
+      <span style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: 600;">Medium / Linked List Pointer Swapping</span>
+    </div>
+
+    <p><strong>Условие:</strong> Дан узел <code>head</code> односвязного списка. Разверните список и верните его новый головной узел.</p>
+
+    <h4>🐍 Оптимальное решение на Python:</h4>
+<pre><code class="language-python">class ListNode:
+    """Определение узла односвязного списка."""
+    def __init__(self, val=0, next=None):
+        self.val = val
+        self.next = next
+
+def reverse_list(head: ListNode | None) -> ListNode | None:
+    """
+    Разворачивает односвязный список итеративно.
+    Временная сложность: O(N)
+    Пространственная сложность: O(1)
+    """
+    prev = None
+    current = head
+
+    while current is not None:
+        next_node = current.next  # Сохраняем ссылку на следующий узел
+        current.next = prev       # Разворачиваем указатель текущего узла назад
+        prev = current            # Сдвигаем prev на текущий узел
+        current = next_node       # Переходим к следующему узлу
+
+    return prev  # prev станет новой головой развернутого списка
+
+# Создаем список 1 -> 2 -> 3
+node3 = ListNode(3)
+node2 = ListNode(2, node3)
+node1 = ListNode(1, node2)
+
+# Разворачиваем список
+new_head = reverse_list(node1)
+assert new_head.val == 3
+assert new_head.next.val == 2
+assert new_head.next.next.val == 1
+assert new_head.next.next.next is None
+print("✅ Задача 12 успешно прошла тесты!")
+</code></pre>
+  </div>
+</div>
+
+<!-- SECTION 7: CHECKLIST -->
+<div class="article-section" id="dry-run-checklist">
+  <h2>Часть 7. Чек-лист проверки кода перед отправкой на собеседовании</h2>
+
+  <div style="background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 12px; padding: 24px;">
+    <h3 style="color: #10b981; margin-top: 0;">🚀 Ручной прогон (Dry Run) за 60 секунд:</h3>
+    <ol style="margin-bottom: 0; padding-left: 20px;">
+      <li style="margin-bottom: 8px;"><strong>Пустой ввод и None:</strong> Что произойдет, если на вход пришел <code>[]</code>, <code>""</code> или <code>None</code>? Будет ли <code>IndexError</code>?</li>
+      <li style="margin-bottom: 8px;"><strong>Массив из 1 элемента:</strong> Корректно ли отрабатывают циклы <code>while left < right</code> или <code>range(1, len(nums))</code>?</li>
+      <li style="margin-bottom: 8px;"><strong>Дубликаты:</strong> Не ломается ли логика при одинаковых элементах в массиве?</li>
+      <li style="margin-bottom: 8px;"><strong>Указатели границы массива:</strong> Проверьте условия <code>left <= right</code> и <code>mid = left + (right - left) // 2</code>.</li>
+      <li style="margin-bottom: 8px;"><strong>Сложность O(T) и O(M):</strong> Готовы ли вы обосновать, почему выбрали именно эту структуру данных?</li>
+    </ol>
+  </div>
+</div>
