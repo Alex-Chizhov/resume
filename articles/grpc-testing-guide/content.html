@@ -1,0 +1,593 @@
+<div class="article-lead">
+  gRPC становится стандартом де-факто для высоконагруженного межсервисного взаимодействия в микросервисной архитектуре. Благодаря бинарному протоколу Protocol Buffers и транспорту HTTP/2, gRPC обеспечивает десятикратный прирост производительности по сравнению с традиционным REST JSON API. Однако для QA-инженера переход на gRPC влечет за собой смену привычных инструментов и подходов к тестированию: от отсутствия привычных HTTP-методов и JSON-пейлоадов в сникере трафика до специфичных статусов ошибок и 4 режимов стриминга. В этом практическом руководстве мы подробно разберем архитектуру gRPC, научимся тестировать сервисы вручную через <code>grpcurl</code> и Postman, настроим кодогенерацию на Python и напишем полноценный фреймворк автотестов на <strong>PyTest</strong> с мокированием и нагрузочным тестированием.
+</div>
+
+<!-- Table of Contents (TOC) with Anchors -->
+<div class="toc-container">
+  <div class="toc-title">📑 Оглавление статьи</div>
+  <div class="toc-grid">
+    
+    <div class="toc-section-block">
+      <span class="toc-section-label">Часть 1. Теория и архитектура</span>
+      <ul class="toc-list">
+        <li><a href="#grpc-vs-rest">1. REST vs gRPC: В чем разница?</a></li>
+        <li><a href="#protobuf-http2">2. Магия Protocol Buffers и HTTP/2</a></li>
+        <li><a href="#rpc-types">3. 4 типа взаимодействия в gRPC</a></li>
+      </ul>
+    </div>
+
+    <div class="toc-section-block">
+      <span class="toc-section-label">Часть 2. Ручное и CLI тестирование</span>
+      <ul class="toc-list">
+        <li><a href="#grpcurl-manual">4. Тестирование через grpcurl & Reflection</a></li>
+        <li><a href="#gui-tools">5. GUI-инструменты: Postman & Kreya</a></li>
+      </ul>
+    </div>
+
+    <div class="toc-section-block">
+      <span class="toc-section-label">Часть 3. Настройка Python & Proto</span>
+      <ul class="toc-list">
+        <li><a href="#python-setup-proto">6. Окружение и компиляция .proto схемы</a></li>
+        <li><a href="#proto-schema-example">7. Проектирование схемы OrderService</a></li>
+      </ul>
+    </div>
+
+    <div class="toc-section-block">
+      <span class="toc-section-label">Часть 4. Автоматизация на PyTest</span>
+      <ul class="toc-list">
+        <li><a href="#pytest-fixtures">8. Фикстуры PyTest и настройка каналов</a></li>
+        <li><a href="#testing-unary">9. Автотесты для Unary RPC</a></li>
+        <li><a href="#testing-streaming">10. Автотесты для Streaming RPC</a></li>
+        <li><a href="#grpc-error-handling">11. Проверка gRPC Status Codes</a></li>
+      </ul>
+    </div>
+
+    <div class="toc-section-block">
+      <span class="toc-section-label">Часть 5. Моки и Нагрузка</span>
+      <ul class="toc-list">
+        <li><a href="#grpc-mocking">12. Мокирование gRPC сервиса в Python</a></li>
+        <li><a href="#grpc-load-testing-ghz">13. Нагрузочное тестирование с ghz</a></li>
+        <li><a href="#test-matrix-checklist">14. Матрица тест-кейсов & QA Чек-лист</a></li>
+      </ul>
+    </div>
+
+  </div>
+</div>
+
+<!-- SECTION 1 -->
+<div class="article-section">
+  <h2 id="grpc-vs-rest">Часть 1. REST vs gRPC: В чем разница?</h2>
+  <p>Чтобы эффективно тестировать gRPC, важно понять, чем он принципиально отличается от классического REST API. В REST мы привыкли оперировать ресурсами (URL), HTTP-методами (GET, POST, PUT, DELETE) и текстовым JSON-форматом. В gRPC мы вызываем <strong>удаленные функции (RPC — Remote Procedure Call)</strong> прямо как обычные методы в коде, а данные передаются в строгом бинарном формате.</p>
+
+  <div style="overflow-x: auto; margin: 20px 0;">
+    <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 14px;">
+      <thead>
+        <tr style="background: rgba(255, 255, 255, 0.05); border-bottom: 2px solid var(--border-color);">
+          <th style="padding: 12px; font-weight: 600;">Характеристика</th>
+          <th style="padding: 12px; font-weight: 600;">REST API</th>
+          <th style="padding: 12px; font-weight: 600;">gRPC API</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr style="border-bottom: 1px solid var(--border-color);">
+          <td style="padding: 12px;"><strong>Транспортный протокол</strong></td>
+          <td style="padding: 12px;">HTTP/1.1 (текстовый) или HTTP/2</td>
+          <td style="padding: 12px;"><code style="color: #10b981;">HTTP/2 (строго бинарный)</code></td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--border-color);">
+          <td style="padding: 12px;"><strong>Формат данных</strong></td>
+          <td style="padding: 12px;">JSON / XML (текстовый, избыточный)</td>
+          <td style="padding: 12px;"><code style="color: #10b981;">Protocol Buffers (компактный бинарный)</code></td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--border-color);">
+          <td style="padding: 12px;"><strong>Контракт (Схема)</strong></td>
+          <td style="padding: 12px;">OpenAPI (Swagger) — опционально</td>
+          <td style="padding: 12px;"><code style="color: #6366f1;">.proto файлы — обязательно (Strict Types)</code></td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--border-color);">
+          <td style="padding: 12px;"><strong>Режимы передачи</strong></td>
+          <td style="padding: 12px;">Request / Response (полинговые WebSocket отдельно)</td>
+          <td style="padding: 12px;"><code style="color: #10b981;">Unary + 3 вида Streaming (двунаправленный)</code></td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--border-color);">
+          <td style="padding: 12px;"><strong>Производительность</strong></td>
+          <td style="padding: 12px;">Средняя (парсинг JSON требует CPU)</td>
+          <td style="padding: 12px;"><code style="color: #10b981;">Высокая (сериализация до 7-10 раз быстрее)</code></td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--border-color);">
+          <td style="padding: 12px;"><strong>Кодогенерация</strong></td>
+          <td style="padding: 12px;">Сторонние генераторы (Swagger Codegen)</td>
+          <td style="padding: 12px;"><code style="color: #6366f1;">Встроена в экосистему protoc для 10+ языков</code></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 id="protobuf-http2">Магия Protocol Buffers и HTTP/2</h3>
+  <p>Превосходство gRPC держится на двух ключевых китах:</p>
+
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin: 20px 0;">
+    <div style="background: rgba(99, 102, 241, 0.08); border: 1px solid rgba(99, 102, 241, 0.3); padding: 20px; border-radius: 12px;">
+      <h4 style="color: #6366f1; margin-top: 0;">⚡ 1. Protocol Buffers (Protobuf)</h4>
+      <p style="font-size: 14px; color: var(--text-muted);">Вместо передачи названий ключей (например, <code>"user_first_name": "Alexander"</code>) Protobuf кодирует данные под чисельными тэгами полей (field tags: <code>1</code>, <code>2</code>, <code>3</code>). Это уменьшает размер сетевого пакета в 5–8 раз и устраняет затратный парсинг строк.</p>
+    </div>
+    <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.3); padding: 20px; border-radius: 12px;">
+      <h4 style="color: #10b981; margin-top: 0;">🚀 2. HTTP/2 Transport</h4>
+      <p style="font-size: 14px; color: var(--text-muted);">HTTP/2 поддержит мультиплексирование (сотни параллельных запросов внутри одного TCP-соединения), сжатие заголовков (HPACK) и двунаправленный постоянный стриминг данных без постоянных лишних handshake.</p>
+    </div>
+  </div>
+
+  <h3 id="rpc-types">4 типа взаимодействия в gRPC</h3>
+  <p>При тестировании gRPC сервисов вы встретите 4 модели работы методов:</p>
+
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin: 20px 0;">
+    <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-color); padding: 16px; border-radius: 8px;">
+      <strong style="color: #38bdf8;">1. Unary RPC</strong>
+      <p style="font-size: 13px; margin-top: 6px; color: var(--text-muted);">Классический вызов: 1 запрос ➡️ 1 ответ. Аналог привычного REST.</p>
+    </div>
+    <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-color); padding: 16px; border-radius: 8px;">
+      <strong style="color: #fbbf24;">2. Server Streaming</strong>
+      <p style="font-size: 13px; margin-top: 6px; color: var(--text-muted);">1 запрос ➡️ Поток ответов (например, лог событий, курсы валют в live).</p>
+    </div>
+    <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-color); padding: 16px; border-radius: 8px;">
+      <strong style="color: #a78bfa;">3. Client Streaming</strong>
+      <p style="font-size: 13px; margin-top: 6px; color: var(--text-muted);">Поток запросов ➡️ 1 финальный ответ (загрузка файлов по кускам, телеметрия).</p>
+    </div>
+    <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-color); padding: 16px; border-radius: 8px;">
+      <strong style="color: #f43f5e;">4. Bidirectional Streaming</strong>
+      <p style="font-size: 13px; margin-top: 6px; color: var(--text-muted);">Поток запросов 🔄 Поток ответов в реальном времени (чат, гео-трекинг).</p>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 2 -->
+<div class="article-section">
+  <h2 id="grpcurl-manual">Часть 2. Ручное и CLI тестирование gRPC</h2>
+  <p>Прежде чем писать автоматизированные тесты на Python, проверим сервис вручную. В мире REST для этого используют <code>curl</code> или Postman. В gRPC аналогом является утилита <strong><code>grpcurl</code></strong>.</p>
+
+  <div style="background: rgba(245, 158, 11, 0.1); border-left: 4px solid #f59e0b; padding: 16px; border-radius: 4px; margin: 16px 0;">
+    <strong>⚠️ Внимание: Reflection API</strong><br>
+    Чтобы <code>grpcurl</code> или GUI-клиенты могли автоматически показывать доступные методы и структуру сообщений без локального <code>.proto</code> файла, на gRPC-сервере должен быть включен <strong>Server Reflection Protocol</strong>. На стейджинг-серверах его включение настоятельно рекомендуется для тестировщиков!
+  </div>
+
+  <h3>Полезные команды grpcurl</h3>
+  <pre><code class="language-bash"># 1. Просмотреть список всех доступных gRPC сервисов на сервере
+grpcurl -plaintext localhost:50051 list
+
+# 2. Получить список методов конкретного сервиса
+grpcurl -plaintext localhost:50051 list order.v1.OrderService
+
+# 3. Инспекция структуры метода и тип входных/выходных Protobuf сообщений
+grpcurl -plaintext localhost:50051 describe order.v1.OrderService.CreateOrder
+
+# 4. Вызов Unary метода с передачей JSON дэйты (преобразуется в Protobuf)
+grpcurl -plaintext -d '{"user_id": 101, "items": ["item_1", "item_2"]}' \
+  localhost:50051 order.v1.OrderService/CreateOrder
+
+# 5. Передача метаданных (авторизация, токены, трассировка) через заголовки
+grpcurl -plaintext -H "authorization: Bearer secret_jwt_token" \
+  -d '{"order_id": "ORD-9988"}' \
+  localhost:50051 order.v1.OrderService/GetOrder</code></pre>
+
+  <h3 id="gui-tools">GUI-инструменты: Postman & Kreya</h3>
+  <p>Если вы предпочитаете графический интерфейс:</p>
+  <ul>
+    <li><strong>Postman (с версий 9.0+)</strong>: Поддерживает gRPC из коробки. Достаточно загрузить <code>.proto</code> файл или включить Server Reflection, ввести URL вида <code>localhost:50051</code> и выбирать методы из выпадающего списка.</li>
+    <li><strong>Kreya / BloomRPC</strong>: Специализированные клиенты для gRPC. Позволяют удобно сохранять коллекцию запросов, редактировать метаданные и тестировать все виды стриминга.</li>
+  </ul>
+</div>
+
+<!-- SECTION 3 -->
+<div class="article-section">
+  <h2 id="python-setup-proto">Часть 3. Настройка Python & Proto схемы</h2>
+  <p>Для автоматизации gRPC тестов на Python нам понадобятся официальные библиотеки Google gRPC и тестовый фреймворк PyTest.</p>
+
+  <h3>Установка зависимостей</h3>
+  <pre><code class="language-bash">pip install grpcio grpcio-tools pytest pytest-asyncio</code></pre>
+
+  <h3 id="proto-schema-example">Проектирование схемы order_service.proto</h3>
+  <p>Создадим тестовый контракт микросервиса заказов <code>protos/order_service.proto</code>:</p>
+
+  <pre><code class="language-protobuf">syntax = "proto3";
+
+package order.v1;
+
+service OrderService {
+  // Unary RPC: Создание заказа
+  rpc CreateOrder (CreateOrderRequest) returns (CreateOrderResponse);
+
+  // Unary RPC: Получение заказа по ID
+  rpc GetOrder (GetOrderRequest) returns (Order);
+
+  // Server Streaming RPC: Получение истории статусов заказа в реальном времени
+  rpc TrackOrderStatus (TrackOrderRequest) returns (stream OrderStatusUpdate);
+
+  // Client Streaming RPC: Пакетная загрузка товаров в заказ
+  rpc UploadOrderItems (stream UploadItemRequest) returns (UploadItemSummary);
+}
+
+message CreateOrderRequest {
+  int64 user_id = 1;
+  repeated string item_ids = 2;
+  double total_amount = 3;
+}
+
+message CreateOrderResponse {
+  string order_id = 1;
+  string status = 2;
+  string created_at = 3;
+}
+
+message GetOrderRequest {
+  string order_id = 1;
+}
+
+message Order {
+  string order_id = 1;
+  int64 user_id = 2;
+  repeated string item_ids = 3;
+  double total_amount = 4;
+  string status = 5;
+}
+
+message TrackOrderRequest {
+  string order_id = 1;
+}
+
+message OrderStatusUpdate {
+  string order_id = 1;
+  string status = 2;
+  int64 timestamp = 3;
+}
+
+message UploadItemRequest {
+  string order_id = 1;
+  string item_id = 2;
+  int32 quantity = 3;
+}
+
+message UploadItemSummary {
+  string order_id = 1;
+  int32 total_items_uploaded = 2;
+  bool is_success = 3;
+}</code></pre>
+
+  <h3>Компиляция .proto схемы в Python-код</h3>
+  <p>Для генерации статических модулей структуры данных и gRPC клиентских стабов выполним команду:</p>
+
+  <pre><code class="language-bash">python -m grpc_tools.protoc \
+  -I./protos \
+  --python_out=./generated \
+  --grpc_python_out=./generated \
+  ./protos/order_service.proto</code></pre>
+
+  <p>В результате в директории <code>generated/</code> появятся два сгенерированных файла:</p>
+  <ul>
+    <li><code>order_service_pb2.py</code> — содержит Protobuf классы сообщений (<code>CreateOrderRequest</code>, <code>Order</code> и т.д.).</li>
+    <li><code>order_service_pb2_grpc.py</code> — содержит клиентские стабы (<code>OrderServiceStub</code>) и серверные интерфейсы.</li>
+  </ul>
+</div>
+
+<!-- SECTION 4 -->
+<div class="article-section">
+  <h2 id="pytest-fixtures">Часть 4. Автоматизация на PyTest</h2>
+  <p>Переходим к самому главному — построению тестового фреймворка на PyTest. Начнем с файла <code>conftest.py</code>, где настроим подключение к gRPC-серверу и управление gRPC-каналом (Channel).</p>
+
+  <h3>Архитектура conftest.py</h3>
+  <pre><code class="language-python">import pytest
+import grpc
+import sys
+import os
+
+# Добавляем папки сгенерированного кода в sys.path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "generated")))
+
+import order_service_pb2_grpc as pb2_grpc
+
+GRPC_SERVER_HOST = "localhost:50051"
+
+@pytest.fixture(scope="session")
+def grpc_channel():
+    """
+    Сессионная фикстура для создания незащищенного gRPC канала.
+    В gRPC каналы являются долгоживущими и экономичными.
+    """
+    channel = grpc.insecure_channel(GRPC_SERVER_HOST)
+    yield channel
+    # Корректное закрытие канала после прогона всех тестов
+    channel.close()
+
+@pytest.fixture(scope="function")
+def order_stub(grpc_channel):
+    """
+    Фикстура клиентского стаба для взаимодействия с OrderService.
+    """
+    return pb2_grpc.OrderServiceStub(grpc_channel)
+
+@pytest.fixture(scope="function")
+def auth_metadata():
+    """
+    Фикстура для передачи заголовков авторизации (Metadata) в gRPC запросах.
+    В gRPC метаданные передаются в виде кортежей пар (key, value).
+    """
+    return (
+        ("authorization", "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."),
+        ("x-client-id", "pytest-automation-runner"),
+    )</code></pre>
+
+  <h3 id="testing-unary">Автотесты для Unary RPC</h3>
+  <p>Напишем автотесты для одиночных (Unary) вызовов <code>CreateOrder</code> и <code>GetOrder</code> в файле <code>test_order_service.py</code>:</p>
+
+  <pre><code class="language-python">import pytest
+import grpc
+import order_service_pb2 as pb2
+
+class TestCreateOrder:
+
+    def test_create_order_success(self, order_stub, auth_metadata):
+        """
+        Позитивный тест: Успешное создание заказа со всеми валидными полями.
+        """
+        request = pb2.CreateOrderRequest(
+            user_id=4042,
+            item_ids=["phone-apple-15", "case-silicone"],
+            total_amount=1200.50
+        )
+
+        # Вызов Unary RPC с передачей metadata и timeout (в секундах)
+        response = order_stub.CreateOrder(request, metadata=auth_metadata, timeout=5.0)
+
+        # Валидация ответа от gRPC сервиса
+        assert response.order_id != "", "Order ID не должен быть пустым"
+        assert response.status == "CREATED", f"Неожиданный статус: {response.status}"
+        assert len(response.order_id) > 5
+
+    def test_create_order_invalid_amount(self, order_stub, auth_metadata):
+        """
+        Негативный тест: Попытка создать заказ с отрицательной суммой.
+        Ожидаем статус ошибки INVALID_ARGUMENT (4).
+        """
+        request = pb2.CreateOrderRequest(
+            user_id=4042,
+            item_ids=["item-1"],
+            total_amount=-50.0
+        )
+
+        # Проверяем, что сервер генерирует grpc.RpcError
+        with pytest.raises(grpc.RpcError) as exc_info:
+            order_stub.CreateOrder(request, metadata=auth_metadata, timeout=3.0)
+
+        # Валидация gRPC кода ошибки и сообщения
+        err = exc_info.value
+        assert err.code() == grpc.StatusCode.INVALID_ARGUMENT
+        assert "Total amount cannot be negative" in err.details()</code></pre>
+
+  <h3 id="testing-streaming">Автотесты для Streaming RPC</h3>
+  <p>Тестирование стриминга — уникальная фича gRPC. Разберем, как тестировать <strong>Server Streaming</strong> и <strong>Client Streaming</strong> в PyTest.</p>
+
+  <pre><code class="language-python">class TestOrderStreaming:
+
+    def test_server_streaming_track_order_status(self, order_stub, auth_metadata):
+        """
+        Тестирование Server Streaming RPC:
+        Сервер возвращает итератор ответов в реальном времени.
+        """
+        request = pb2.TrackOrderRequest(order_id="ORD-1002")
+
+        # В Server Streaming вызов возвращает генератор/итератор
+        response_stream = order_stub.TrackOrderStatus(request, metadata=auth_metadata, timeout=10.0)
+
+        collected_statuses = []
+        for status_update in response_stream:
+            collected_statuses.append(status_update.status)
+
+        # Проверяем последовательность смены статусов заказа
+        expected_workflow = ["PROCESSING", "SHIPPED", "DELIVERED"]
+        assert collected_statuses == expected_workflow, f"Неверный порядок статусов: {collected_statuses}"
+
+    def test_client_streaming_upload_items(self, order_stub, auth_metadata):
+        """
+        Тестирование Client Streaming RPC:
+        Клиент передает итератор/генератор сообщений серверу.
+        """
+        def generate_items():
+            items = [
+                pb2.UploadItemRequest(order_id="ORD-5500", item_id="item-A", quantity=2),
+                pb2.UploadItemRequest(order_id="ORD-5500", item_id="item-B", quantity=1),
+                pb2.UploadItemRequest(order_id="ORD-5500", item_id="item-C", quantity=5),
+            ]
+            for item in items:
+                yield item
+
+        # Передаем функцию-генератор в качестве единственного аргумента
+        response = order_stub.UploadOrderItems(generate_items(), metadata=auth_metadata, timeout=5.0)
+
+        assert response.is_success is True
+        assert response.total_items_uploaded == 3
+        assert response.order_id == "ORD-5500"</code></pre>
+
+  <h3 id="grpc-error-handling">Проверка gRPC Status Codes</h3>
+  <p>В отличие от HTTP, где используются статус-коды 200, 400, 404, 500, в gRPC определены <strong>16 канонических статусов ошибки (gRPC Status Codes)</strong>. В таблице ниже приведены главные коды, которые QA обязан уметь проверять в автотестах:</p>
+
+  <div style="overflow-x: auto; margin: 20px 0;">
+    <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 14px;">
+      <thead>
+        <tr style="background: rgba(255, 255, 255, 0.05); border-bottom: 2px solid var(--border-color);">
+          <th style="padding: 12px; font-weight: 600;">Code</th>
+          <th style="padding: 12px; font-weight: 600;">Название статуса</th>
+          <th style="padding: 12px; font-weight: 600;">HTTP аналог</th>
+          <th style="padding: 12px; font-weight: 600;">Когда возникает в QA тестах</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr style="border-bottom: 1px solid var(--border-color);">
+          <td style="padding: 12px;"><code>0</code></td>
+          <td style="padding: 12px;"><code style="color: #10b981;">OK</code></td>
+          <td style="padding: 12px;">200 OK</td>
+          <td style="padding: 12px;">Запрос успешно обработан.</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--border-color);">
+          <td style="padding: 12px;"><code>3</code></td>
+          <td style="padding: 12px;"><code style="color: #f59e0b;">INVALID_ARGUMENT</code></td>
+          <td style="padding: 12px;">400 Bad Request</td>
+          <td style="padding: 12px;">Ошибка валидации полей (негативный баланс, пустой ID).</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--border-color);">
+          <td style="padding: 12px;"><code>4</code></td>
+          <td style="padding: 12px;"><code style="color: #ef4444;">DEADLINE_EXCEEDED</code></td>
+          <td style="padding: 12px;">504 Gateway Timeout</td>
+          <td style="padding: 12px;">Истек таймаут выполнения запроса (timeout=N).</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--border-color);">
+          <td style="padding: 12px;"><code>5</code></td>
+          <td style="padding: 12px;"><code style="color: #f59e0b;">NOT_FOUND</code></td>
+          <td style="padding: 12px;">404 Not Found</td>
+          <td style="padding: 12px;">Запрошенный ресурс/заказ не существует в базе.</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--border-color);">
+          <td style="padding: 12px;"><code>16</code></td>
+          <td style="padding: 12px;"><code style="color: #ef4444;">UNAUTHENTICATED</code></td>
+          <td style="padding: 12px;">401 Unauthorized</td>
+          <td style="padding: 12px;">Отсутствует или невалиден JWT-токен в Metadata.</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--border-color);">
+          <td style="padding: 12px;"><code>7</code></td>
+          <td style="padding: 12px;"><code style="color: #ef4444;">PERMISSION_DENIED</code></td>
+          <td style="padding: 12px;">403 Forbidden</td>
+          <td style="padding: 12px;">У пользователя нет прав на выполнение операции.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- SECTION 5 -->
+<div class="article-section">
+  <h2 id="grpc-mocking">Часть 5. Мокирование gRPC сервиса на Python</h2>
+  <p>При микросервисной архитектуре тестируемый сервис часто зависит от внешних gRPC-сервисов (например, Billing Service или Inventory Service). Чтобы сделать автотесты независимыми от внешнего окружения, мы поднимаем локальный <strong>Mock gRPC Server</strong> прямо в тестах PyTest.</p>
+
+  <h3>Пример реализации Mock-сервера на Python</h3>
+  <pre><code class="language-python">import pytest
+import grpc
+from concurrent import futures
+import order_service_pb2 as pb2
+import order_service_pb2_grpc as pb2_grpc
+
+# 1. Создаем тестовую фейковую реализацию сервиса
+class MockOrderServicer(pb2_grpc.OrderServiceServicer):
+
+    def CreateOrder(self, request, context):
+        if request.user_id == 999:
+            context.abort(grpc.StatusCode.PERMISSION_DENIED, "User is blacklisted")
+        return pb2.CreateOrderResponse(
+            order_id="MOCK-ORDER-777",
+            status="CREATED",
+            created_at="2026-08-02T12:00:00Z"
+        )
+
+@pytest.fixture(scope="module")
+def mock_grpc_server():
+    """
+    Фикстура, запускающая в фоновом потоке тестовый gRPC сервер на порту 50052.
+    """
+    server = grpc.server(futures.ThreadPoolExecutor(max_workers=2))
+    pb2_grpc.add_OrderServiceServicer_to_server(MockOrderServicer(), server)
+    server.add_insecure_port("127.0.0.1:50052")
+    server.start()
+    yield "127.0.0.1:50052"
+    server.stop(grace=None)
+
+def test_mocked_create_order(mock_grpc_server):
+    # Подключаемся к нашему Mock-серверу
+    with grpc.insecure_channel(mock_grpc_server) as channel:
+        stub = pb2_grpc.OrderServiceStub(channel)
+        
+        request = pb2.CreateOrderRequest(user_id=101, item_ids=["item-1"], total_amount=100.0)
+        response = stub.CreateOrder(request)
+        
+        assert response.order_id == "MOCK-ORDER-777"
+        assert response.status == "CREATED"</code></pre>
+</div>
+
+<!-- SECTION 6 -->
+<div class="article-section">
+  <h2 id="grpc-load-testing-ghz">Часть 6. Нагрузочное тестирование gRPC с ghz</h2>
+  <p>Классический Apache JMeter или Locust не всегда оптимальны для gRPC из-за специфики бинарного транспорта HTTP/2. Каноническим и самым мощным CLI-инструментом для нагрузочного тестирования gRPC является утилита <strong><code>ghz</code></strong> (написана на Go).</p>
+
+  <h3>Пример запуска нагрузки через ghz</h3>
+  <pre><code class="language-bash"># Запуск 10,000 запросов с параллельностью 50 виртуальных пользователей
+ghz --insecure \
+  --proto=./protos/order_service.proto \
+  --call=order.v1.OrderService.CreateOrder \
+  --data='{"user_id": 101, "item_ids": ["item_1"], "total_amount": 199.99}' \
+  --metadata='{"authorization":"Bearer test_token"}' \
+  -c 50 \
+  -n 10000 \
+  --timeout=2s \
+  localhost:50051</code></pre>
+
+  <p>Утилита <code>ghz</code> генерирует подробный консольный отчет и гистограмму задержек (Latency distribution: p50, p95, p99), а также измеряет общее количество успешных запросов в секунду (RPS).</p>
+</div>
+
+<!-- SECTION 7 -->
+<div class="article-section">
+  <h2 id="test-matrix-checklist">Часть 7. Матрица Тест-кейсов & QA Чек-лист</h2>
+  <p>Чтобы ничего не упустить при подготовке тестового покрытия gRPC сервисов, используйте готовую проверенную матрицу тест-кейсов:</p>
+
+  <div style="overflow-x: auto; margin: 20px 0;">
+    <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 14px;">
+      <thead>
+        <tr style="background: rgba(255, 255, 255, 0.05); border-bottom: 2px solid var(--border-color);">
+          <th style="padding: 12px; font-weight: 600;">Категория</th>
+          <th style="padding: 12px; font-weight: 600;">Что проверяем (Тест-кейс)</th>
+          <th style="padding: 12px; font-weight: 600;">Ожидаемый результат</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr style="border-bottom: 1px solid var(--border-color);">
+          <td style="padding: 12px;"><strong>Контракты (Schema)</strong></td>
+          <td style="padding: 12px;">Совместимость <code>.proto</code> файлов, отсутствие breaking changes при изменении полей.</td>
+          <td style="padding: 12px;">Старые клиенты не падают при добавлении новых полей в Protobuf.</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--border-color);">
+          <td style="padding: 12px;"><strong>Валидация типов</strong></td>
+          <td style="padding: 12px;">Передача граничных значений типов (int32 max, float, null/default значения).</td>
+          <td style="padding: 12px;">Возврат <code>INVALID_ARGUMENT (3)</code> с подробным описанием ошибки.</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--border-color);">
+          <td style="padding: 12px;"><strong>Метаданные & Auth</strong></td>
+          <td style="padding: 12px;">Отправка запросов без JWT токена или с просроченным токеном в Metadata.</td>
+          <td style="padding: 12px;">Возврат <code>UNAUTHENTICATED (16)</code>.</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--border-color);">
+          <td style="padding: 12px;"><strong>Таймауты & Deadlines</strong></td>
+          <td style="padding: 12px;">Имитация медленного ответа сервера при <code>timeout=1.0s</code>.</td>
+          <td style="padding: 12px;">Клиент завершает запрос с <code>DEADLINE_EXCEEDED (4)</code>.</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--border-color);">
+          <td style="padding: 12px;"><strong>Стриминг (Streaming)</strong></td>
+          <td style="padding: 12px;">Обрыв сетевого соединения посередине передачи поток данных.</td>
+          <td style="padding: 12px;">Сервер и клиент корректно освобождают ресурсы без утечек памяти.</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--border-color);">
+          <td style="padding: 12px;"><strong>Размер сообщений</strong></td>
+          <td style="padding: 12px;">Отправка пейлоада превышающего дефолтный лимит gRPC (обычно 4MB).</td>
+          <td style="padding: 12px;">Возврат <code>RESOURCE_EXHAUSTED (8)</code>.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>📋 Итоговый Чек-лист готовности для QA Инженера</h3>
+  <div style="background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.2); padding: 20px; border-radius: 12px; margin-top: 20px;">
+    <ul style="list-style: none; padding-left: 0; margin-bottom: 0;">
+      <li style="margin-bottom: 10px;">✅ <code>.proto</code> схемы сохранены в едином репозитории и настроена автоматическая кодогенерация в CI/CD.</li>
+      <li style="margin-bottom: 10px;">✅ На стейджинге включен Server Reflection Protocol для отладки через <code>grpcurl</code> и Postman.</li>
+      <li style="margin-bottom: 10px;">✅ Настроены фикстуры PyTest с повторным использованием незащищенных и SSL-каналов.</li>
+      <li style="margin-bottom: 10px;">✅ Покрыты все 4 типа RPC вызовов (Unary + 3 режима стриминга).</li>
+      <li style="margin-bottom: 10px;">✅ Написаны негативные тесты на проверку статусов ошибок gRPC (Status Codes).</li>
+      <li style="margin-bottom: 10px;">✅ Интегрирован Mock gRPC Server для изолированного тестирования микросервисов.</li>
+      <li style="margin-bottom: 0;">✅ Проведено нагрузочное тестирование ключевых эндпоинтов через <code>ghz</code>.</li>
+    </ul>
+  </div>
+</div>

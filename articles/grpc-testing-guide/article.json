@@ -1,0 +1,10 @@
+{
+  "id": 10,
+  "slug": "grpc-testing-guide",
+  "title": "Как тестировать gRPC: Практическое руководство по автоматизации на Python и PyTest",
+  "image": "assets/images/grpc-testing-cover.png",
+  "category": "API & gRPC",
+  "date": "02 августа 2026",
+  "readTime": "25 мин",
+  "excerpt": "Исчерпывающий гайд по тестированию gRPC сервисов: от теории Protobuf и HTTP/2 до практических автотестов на Python (grpcio, pytest), моков gRPC-сервера, ghz и CI/CD."
+}
