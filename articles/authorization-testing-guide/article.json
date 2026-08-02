@@ -4,7 +4,7 @@
   "title": "Виды и тестирование авторизации: Практическое руководство по аутентификации, RBAC, ABAC, JWT, OAuth 2.0 и автотестам на PyTest",
   "image": "assets/images/authorization-testing-cover.png",
   "category": "Безопасность & API",
-  "date": "01 августа 2026",
+  "date": "16 мая 2025",
   "readTime": "25 мин",
   "excerpt": "Исчерпывающий гайд по видам аутентификации и авторизации: Basic Auth, Bearer JWT, Cookie/Session, API Keys, OAuth 2.0, RBAC, ABAC и BOLA/IDOR. Готовый фреймворк автотестов на Python PyTest с подробной матрицей тест-кейсов."
 }

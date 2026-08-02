@@ -4,7 +4,7 @@
   "title": "Фикстуры в PyTest: От новичка до профессионала",
   "image": "assets/images/pytest-fixtures-cover.png",
   "category": "Python",
-  "date": "29 июля 2026",
+  "date": "13 ноября 2025",
   "readTime": "20 мин",
   "excerpt": "Полное руководство по фикстурам в PyTest: классификация видов фикстур, интроспекция с request, все 5 скоупов, yield-очистка, параметризация, фабрики, conftest.py и реальные паттерны для UI, API и БД."
 }

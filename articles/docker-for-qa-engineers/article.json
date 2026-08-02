@@ -4,7 +4,7 @@
   "title": "Docker для QA инженера: Запуск тестового окружения в один клик",
   "image": "assets/images/docker-qa-cover.png",
   "category": "DevOps",
-  "date": "30 июля 2026",
+  "date": "17 сентября 2025",
   "readTime": "22 мин",
   "excerpt": "Практическое руководство по Docker & Docker Compose для QA: пишем REST API на FastAPI, автотесты на PyTest с Allure отчетами и деплоим весь стек в GitLab CI с нуля."
 }
