@@ -151,7 +151,16 @@
   </div>
 
   <h3>Полезные команды grpcurl</h3>
-  <pre><code class="language-bash"># 1. Просмотреть список всех доступных gRPC сервисов на сервере
+  <div class="code-window">
+    <div class="code-window-header">
+      <div class="window-dots">
+        <span class="dot dot-red"></span>
+        <span class="dot dot-yellow"></span>
+        <span class="dot dot-green"></span>
+      </div>
+      <span class="window-filename">Terminal</span>
+    </div>
+    <pre><code class="language-bash"># 1. Просмотреть список всех доступных gRPC сервисов на сервере
 grpcurl -plaintext localhost:50051 list
 
 # 2. Получить список методов конкретного сервиса
@@ -168,6 +177,7 @@ grpcurl -plaintext -d '{"user_id": 101, "items": ["item_1", "item_2"]}' \
 grpcurl -plaintext -H "authorization: Bearer secret_jwt_token" \
   -d '{"order_id": "ORD-9988"}' \
   localhost:50051 order.v1.OrderService/GetOrder</code></pre>
+  </div>
 
   <h3 id="gui-tools">GUI-инструменты: Postman & Kreya</h3>
   <p>Если вы предпочитаете графический интерфейс:</p>
@@ -183,12 +193,31 @@ grpcurl -plaintext -H "authorization: Bearer secret_jwt_token" \
   <p>Для автоматизации gRPC тестов на Python нам понадобятся официальные библиотеки Google gRPC и тестовый фреймворк PyTest.</p>
 
   <h3>Установка зависимостей</h3>
-  <pre><code class="language-bash">pip install grpcio grpcio-tools pytest pytest-asyncio</code></pre>
+  <div class="code-window">
+    <div class="code-window-header">
+      <div class="window-dots">
+        <span class="dot dot-red"></span>
+        <span class="dot dot-yellow"></span>
+        <span class="dot dot-green"></span>
+      </div>
+      <span class="window-filename">Terminal</span>
+    </div>
+    <pre><code class="language-bash">pip install grpcio grpcio-tools pytest pytest-asyncio</code></pre>
+  </div>
 
   <h3 id="proto-schema-example">Проектирование схемы order_service.proto</h3>
   <p>Создадим тестовый контракт микросервиса заказов <code>protos/order_service.proto</code>:</p>
 
-  <pre><code class="language-protobuf">syntax = "proto3";
+  <div class="code-window">
+    <div class="code-window-header">
+      <div class="window-dots">
+        <span class="dot dot-red"></span>
+        <span class="dot dot-yellow"></span>
+        <span class="dot dot-green"></span>
+      </div>
+      <span class="window-filename">protos/order_service.proto</span>
+    </div>
+    <pre><code class="language-protobuf">syntax = "proto3";
 
 package order.v1;
 
@@ -251,15 +280,26 @@ message UploadItemSummary {
   int32 total_items_uploaded = 2;
   bool is_success = 3;
 }</code></pre>
+  </div>
 
   <h3>Компиляция .proto схемы в Python-код</h3>
   <p>Для генерации статических модулей структуры данных и gRPC клиентских стабов выполним команду:</p>
 
-  <pre><code class="language-bash">python -m grpc_tools.protoc \
+  <div class="code-window">
+    <div class="code-window-header">
+      <div class="window-dots">
+        <span class="dot dot-red"></span>
+        <span class="dot dot-yellow"></span>
+        <span class="dot dot-green"></span>
+      </div>
+      <span class="window-filename">Terminal</span>
+    </div>
+    <pre><code class="language-bash">python -m grpc_tools.protoc \
   -I./protos \
   --python_out=./generated \
   --grpc_python_out=./generated \
   ./protos/order_service.proto</code></pre>
+  </div>
 
   <p>В результате в директории <code>generated/</code> появятся два сгенерированных файла:</p>
   <ul>
@@ -274,7 +314,16 @@ message UploadItemSummary {
   <p>Переходим к самому главному — построению тестового фреймворка на PyTest. Начнем с файла <code>conftest.py</code>, где настроим подключение к gRPC-серверу и управление gRPC-каналом (Channel).</p>
 
   <h3>Архитектура conftest.py</h3>
-  <pre><code class="language-python">import pytest
+  <div class="code-window">
+    <div class="code-window-header">
+      <div class="window-dots">
+        <span class="dot dot-red"></span>
+        <span class="dot dot-yellow"></span>
+        <span class="dot dot-green"></span>
+      </div>
+      <span class="window-filename">conftest.py</span>
+    </div>
+    <pre><code class="language-python">import pytest
 import grpc
 import sys
 import os
@@ -314,11 +363,21 @@ def auth_metadata():
         ("authorization", "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."),
         ("x-client-id", "pytest-automation-runner"),
     )</code></pre>
+  </div>
 
   <h3 id="testing-unary">Автотесты для Unary RPC</h3>
   <p>Напишем автотесты для одиночных (Unary) вызовов <code>CreateOrder</code> и <code>GetOrder</code> в файле <code>test_order_service.py</code>:</p>
 
-  <pre><code class="language-python">import pytest
+  <div class="code-window">
+    <div class="code-window-header">
+      <div class="window-dots">
+        <span class="dot dot-red"></span>
+        <span class="dot dot-yellow"></span>
+        <span class="dot dot-green"></span>
+      </div>
+      <span class="window-filename">test_order_service.py</span>
+    </div>
+    <pre><code class="language-python">import pytest
 import grpc
 import order_service_pb2 as pb2
 
@@ -361,11 +420,21 @@ class TestCreateOrder:
         err = exc_info.value
         assert err.code() == grpc.StatusCode.INVALID_ARGUMENT
         assert "Total amount cannot be negative" in err.details()</code></pre>
+  </div>
 
   <h3 id="testing-streaming">Автотесты для Streaming RPC</h3>
   <p>Тестирование стриминга — уникальная фича gRPC. Разберем, как тестировать <strong>Server Streaming</strong> и <strong>Client Streaming</strong> в PyTest.</p>
 
-  <pre><code class="language-python">class TestOrderStreaming:
+  <div class="code-window">
+    <div class="code-window-header">
+      <div class="window-dots">
+        <span class="dot dot-red"></span>
+        <span class="dot dot-yellow"></span>
+        <span class="dot dot-green"></span>
+      </div>
+      <span class="window-filename">test_order_streaming.py</span>
+    </div>
+    <pre><code class="language-python">class TestOrderStreaming:
 
     def test_server_streaming_track_order_status(self, order_stub, auth_metadata):
         """
@@ -405,6 +474,7 @@ class TestCreateOrder:
         assert response.is_success is True
         assert response.total_items_uploaded == 3
         assert response.order_id == "ORD-5500"</code></pre>
+  </div>
 
   <h3 id="grpc-error-handling">Проверка gRPC Status Codes</h3>
   <p>В отличие от HTTP, где используются статус-коды 200, 400, 404, 500, в gRPC определены <strong>16 канонических статусов ошибки (gRPC Status Codes)</strong>. В таблице ниже приведены главные коды, которые QA обязан уметь проверять в автотестах:</p>
@@ -467,7 +537,16 @@ class TestCreateOrder:
   <p>При микросервисной архитектуре тестируемый сервис часто зависит от внешних gRPC-сервисов (например, Billing Service или Inventory Service). Чтобы сделать автотесты независимыми от внешнего окружения, мы поднимаем локальный <strong>Mock gRPC Server</strong> прямо в тестах PyTest.</p>
 
   <h3>Пример реализации Mock-сервера на Python</h3>
-  <pre><code class="language-python">import pytest
+  <div class="code-window">
+    <div class="code-window-header">
+      <div class="window-dots">
+        <span class="dot dot-red"></span>
+        <span class="dot dot-yellow"></span>
+        <span class="dot dot-green"></span>
+      </div>
+      <span class="window-filename">test_mock_server.py</span>
+    </div>
+    <pre><code class="language-python">import pytest
 import grpc
 from concurrent import futures
 import order_service_pb2 as pb2
@@ -507,6 +586,7 @@ def test_mocked_create_order(mock_grpc_server):
         
         assert response.order_id == "MOCK-ORDER-777"
         assert response.status == "CREATED"</code></pre>
+  </div>
 </div>
 
 <!-- SECTION 6 -->
@@ -515,7 +595,16 @@ def test_mocked_create_order(mock_grpc_server):
   <p>Классический Apache JMeter или Locust не всегда оптимальны для gRPC из-за специфики бинарного транспорта HTTP/2. Каноническим и самым мощным CLI-инструментом для нагрузочного тестирования gRPC является утилита <strong><code>ghz</code></strong> (написана на Go).</p>
 
   <h3>Пример запуска нагрузки через ghz</h3>
-  <pre><code class="language-bash"># Запуск 10,000 запросов с параллельностью 50 виртуальных пользователей
+  <div class="code-window">
+    <div class="code-window-header">
+      <div class="window-dots">
+        <span class="dot dot-red"></span>
+        <span class="dot dot-yellow"></span>
+        <span class="dot dot-green"></span>
+      </div>
+      <span class="window-filename">Terminal</span>
+    </div>
+    <pre><code class="language-bash"># Запуск 10,000 запросов с параллельностью 50 виртуальных пользователей
 ghz --insecure \
   --proto=./protos/order_service.proto \
   --call=order.v1.OrderService.CreateOrder \
@@ -525,6 +614,7 @@ ghz --insecure \
   -n 10000 \
   --timeout=2s \
   localhost:50051</code></pre>
+  </div>
 
   <p>Утилита <code>ghz</code> генерирует подробный консольный отчет и гистограмму задержек (Latency distribution: p50, p95, p99), а также измеряет общее количество успешных запросов в секунду (RPS).</p>
 </div>
